@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-0">{{ resource.title }}</h3>
+      <small class="text-muted">
+        {% if resource.subject %}{{ resource.subject }}{% else %}No subject{% endif %}
+        • Uploaded by
+        <a href="{% url 'public_profile' resource.owner.id %}">
+          {{ resource.owner.username }}
+        </a>
+      </small>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a href="{% url 'resource_detail' resource.pk %}" class="btn btn-outline-secondary btn-sm">
+        ← Back to details
+      </a>
+      <a href="{% url 'resource_download' resource.pk %}" class="btn btn-primary btn-sm">
+        Download
+      </a>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+
+      {# ---------- IMAGE ---------- #}
+      {% if preview_type == "image" %}
+        <div class="text-center">
+          <img src="{{ preview_data }}" alt="{{ resource.title }}"
+               class="img-fluid rounded">
+        </div>
+
+      {# ---------- PDF ---------- #}
+      {% elif preview_type == "pdf" %}
+        <div class="ratio ratio-16x9">
+          <iframe src="{{ preview_data }}" style="border:0;" allowfullscreen></iframe>
+        </div>
+        <p class="small text-muted mt-2 mb-0">
+          If the PDF is not visible, try downloading and opening it locally.
+        </p>
+
+      {# ---------- DOCX ---------- #}
+      {% elif preview_type == "docx" %}
+        <h5 class="mb-3">Document preview</h5>
+        {% if preview_data %}
+          <pre class="small bg-light p-3 rounded" style="max-height: 420px; overflow:auto;">
+{% for line in preview_data %}
+{{ line }}
+{% endfor %}
+          </pre>
+        {% else %}
+          <p class="text-muted">
+            Could not generate a text preview. Please download and open in Word / WPS.
+          </p>
+        {% endif %}
+
+      {# ---------- PPT / PPTX ---------- #}
+      {% elif preview_type == "ppt" %}
+        <h5 class="mb-3">Slides overview</h5>
+        {% if preview_data %}
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <ol class="mb-0">
+                {% for title in preview_data %}
+                  <li class="mb-1">{{ title }}</li>
+                {% endfor %}
+              </ol>
+            </div>
+          </div>
+          <p class="small text-muted mt-2 mb-0">
+            This is just a text overview of slide titles.
+            For full slides and animations, use the Download button and open the PPT file
+            in PowerPoint / WPS / Google Slides.
+          </p>
+        {% else %}
+          <p class="text-muted">
+            Could not read slide titles. Please download and open the PPT locally.
+          </p>
+        {% endif %}
+
+      {# ---------- ZIP ---------- #}
+      {% elif preview_type == "zip" %}
+        <h5 class="mb-3">Files inside this ZIP</h5>
+        {% if preview_data %}
+          <ul class="list-group">
+            {% for name in preview_data %}
+              <li class="list-group-item small">{{ name }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">
+            Could not list ZIP contents. Please download and open it with any ZIP tool.
+          </p>
+        {% endif %}
+
+      {# ---------- FALLBACK ---------- #}
+      {% else %}
+        <p class="text-muted">
+          Online preview not available for this file type.
+          Please use the Download button to view it.
+        </p>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

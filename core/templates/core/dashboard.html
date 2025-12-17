@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3 class="mb-3">My Activity Dashboard</h3>
+
+  <div class="row">
+    <!-- Stats cards -->
+    <div class="col-md-3 mb-3">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Uploads</h6>
+        <h3>{{ uploads_count }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Favorites Saved</h6>
+        <h3>{{ favorites_count }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Ratings Received</h6>
+        <h3>{{ ratings_received }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3 mb-3">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Views / Downloads</h6>
+        <h5>{{ total_views }} / {{ total_downloads }}</h5>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="card shadow-sm mt-3">
+    <div class="card-body">
+      <h5 class="card-title">Views & Downloads per your upload</h5>
+      <canvas id="activityChart" height="120"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const labels = JSON.parse('{{ labels_json|escapejs }}');
+  const viewsData = JSON.parse('{{ views_json|escapejs }}');
+  const downloadsData = JSON.parse('{{ downloads_json|escapejs }}');
+
+  const ctx = document.getElementById('activityChart').getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Views',
+          data: viewsData,
+          borderWidth: 1
+        },
+        {
+          label: 'Downloads',
+          data: downloadsData,
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+</script>
+{% endblock %}

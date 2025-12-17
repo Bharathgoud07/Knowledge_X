@@ -1,0 +1,35 @@
+{# resources/templates/resources/my_favorites.html #}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>My Saved Resources</h3>
+  <p class="text-muted">Resources you have marked as favorite.</p>
+
+  {% if resources %}
+    <div class="list-group mt-3">
+      {% for res in resources %}
+        <a href="{% url 'resource_detail' res.pk %}" class="list-group-item list-group-item-action">
+          <div class="d-flex w-100 justify-content-between">
+            <div>
+              <h5 class="mb-1">{{ res.title }}</h5>
+              <small class="text-muted">
+                Subject: {% if res.subject %}{{ res.subject }}{% else %}N/A{% endif %} |
+                Type:
+                {% for val, label in resource_type_choices %}
+                  {% if val == res.resource_type %}{{ label }}{% endif %}
+                {% endfor %}
+              </small>
+            </div>
+            <span class="badge text-bg-light">
+              👁 {{ res.view_count }} &nbsp; ⬇ {{ res.download_count }}
+            </span>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-muted mt-3">You haven’t saved any resources yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

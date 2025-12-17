@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4" style="max-width: 480px;">
+  <div class="card shadow-sm border-0 p-4">
+    <h4 class="mb-3 text-center">Enter OTP</h4>
+    <p class="text-muted small">
+      Check your email for the 6-digit OTP.
+    </p>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn btn-success w-100">Login</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+  <div class="card shadow-lg border-0" style="max-width: 420px; width: 100%; border-radius: 18px;">
+    <div class="card-body p-4">
+
+      <div class="text-center mb-3">
+        <img src="{% static 'logo.png' %}" alt="Logo" style="height:40px;" onerror="this.style.display='none'">
+        <h3 class="mb-0 mt-2">Welcome back 👋</h3>
+        <p class="text-muted small mb-0">Login to continue using Knowledgex</p>
+      </div>
+
+      {% if messages %}
+        <div class="mb-2">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} py-2 mb-1 small">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" class="login-form">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label">Email or Username</label>
+          {{ form.identifier }}
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Password</label>
+          {{ form.password }}
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+      </form>
+
+      <div class="d-flex justify-content-between align-items-center mt-3 small">
+        <span class="text-muted">
+          New here?
+          <a href="{% url 'register' %}">Create account</a>
+        </span>
+
+        <span class="text-muted">
+          Forgot password? Contact admin
+        </span>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow-sm border-0">
+    <div class="card-body">
+      <h4 class="mb-3">🏆 Top Contributors</h4>
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>User</th>
+            <th>Uploads</th>
+            <th>Downloads</th>
+            <th>Views</th>
+            <th>Comments</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>
+              <a href="{% url 'public_profile' u.id %}">
+                {{ u.username }}
+              </a>
+            </td>
+            <td>{{ u.uploads_count }}</td>
+            <td>{{ u.total_downloads|default:0 }}</td>
+            <td>{{ u.total_views|default:0 }}</td>
+            <td>{{ u.comments_made }}</td>
+            <td>{{ u.score }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center">No data yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

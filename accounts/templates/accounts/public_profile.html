@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row g-4">
+    <!-- Left: Avatar + basic info -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm border-0">
+        <div class="card-body text-center p-4">
+          <img
+            src="{% if profile.picture %}{{ profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
+            class="rounded-circle mb-2"
+            style="width:110px;height:110px;object-fit:cover;"
+            alt="Avatar"
+          >
+          <h5 class="mb-0">{{ profile_user.username }}</h5>
+          {% if profile.bio %}
+            <p class="small text-muted mt-2 mb-0">{{ profile.bio }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: About + links + stats -->
+    <div class="col-lg-8">
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body p-4">
+          <h5 class="mb-3">About</h5>
+
+          <div class="row mb-2">
+            <div class="col-sm-4 text-muted small">Full name</div>
+            <div class="col-sm-8">{{ profile.full_name|default:"—" }}</div>
+          </div>
+
+          <div class="row mb-2">
+            <div class="col-sm-4 text-muted small">College</div>
+            <div class="col-sm-8">{{ profile.college|default:"—" }}</div>
+          </div>
+
+          <div class="row mb-2">
+            <div class="col-sm-4 text-muted small">Branch</div>
+            <div class="col-sm-8">{{ profile.branch|default:"—" }}</div>
+          </div>
+
+          <div class="row mb-2">
+            <div class="col-sm-4 text-muted small">Location</div>
+            <div class="col-sm-8">{{ profile.location|default:"—" }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rank + badges + chart -->
+      <div class="mb-2">
+        <span class="badge bg-secondary me-2">Rank: #{{ rank }}</span>
+        {% for b in badges %}
+          <span class="badge bg-primary me-1">{{ b }}</span>
+        {% endfor %}
+      </div>
+
+      <canvas id="activityChart" height="120"></canvas>
+
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        const ctx = document.getElementById('activityChart');
+        if (ctx) {
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: {{ chart_labels_json|safe }},
+              datasets: [{
+                label: 'Downloads per upload',
+                data: {{ chart_downloads_json|safe }},
+                tension: 0.3
+              }]
+            },
+            options: {
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true }
+              }
+            }
+          });
+        }
+      </script>
+
+      <div class="row g-3 mt-3">
+        <!-- Links -->
+        <div class="col-md-6">
+          <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-3">
+              <h6 class="mb-2">Links</h6>
+              <ul class="list-unstyled small mb-0">
+                <li class="mb-2 d-flex align-items-center">
+                  <i class="bi bi-github me-2 fs-5"></i>
+                  {% if profile.github %}
+                    <a href="{{ profile.github }}" target="_blank">GitHub Profile</a>
+                  {% else %}
+                    <span class="text-muted">Not added</span>
+                  {% endif %}
+                </li>
+                <li class="mb-2 d-flex align-items-center">
+                  <i class="bi bi-linkedin me-2 fs-5 text-primary"></i>
+                  {% if profile.linkedin %}
+                    <a href="{{ profile.linkedin }}" target="_blank">LinkedIn Profile</a>
+                  {% else %}
+                    <span class="text-muted">Not added</span>
+                  {% endif %}
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity overview -->
+        <div class="col-md-6">
+          <div class="card shadow-sm border-0 h-100">
+            <div class="card-body p-3">
+              <h6 class="mb-2">Activity overview</h6>
+              <span class="badge bg-light text-dark me-1">
+                Uploads: {{ uploads_count }}
+              </span>
+              <span class="badge bg-light text-dark me-1">
+                Favorites: {{ favorites_count }}
+              </span>
+              <span class="badge bg-light text-dark">
+                Comments: {{ comments_count }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

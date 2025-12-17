@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow p-4 mx-auto" style="max-width: 600px;">
+    <h4 class="mb-3">Delete Resource</h4>
+    <p>Are you sure you want to delete <strong>{{ resource.title }}</strong>?</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Yes, delete</button>
+      <a href="{% url 'resource_detail' resource.pk %}" class="btn btn-secondary ms-2">
+        Cancel
+      </a>
+    </form>
+  </div>
+</div>
+{% endblock %}

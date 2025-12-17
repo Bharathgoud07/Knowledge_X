@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3 class="mb-3">Admin Analytics</h3>
+
+  <!-- Top summary cards -->
+  <div class="row mb-3">
+    <div class="col-md-3 mb-2">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Total Resources</h6>
+        <h3>{{ total_resources }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3 mb-2">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Total Views</h6>
+        <h3>{{ total_views }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3 mb-2">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Total Downloads</h6>
+        <h3>{{ total_downloads }}</h3>
+      </div>
+    </div>
+    <div class="col-md-3 mb-2">
+      <div class="card shadow-sm text-center p-3">
+        <h6>Total Visits</h6>
+        <h3>{{ total_visits }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Uploads per day -->
+    <div class="col-md-6 mb-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Uploads per day</h5>
+          <canvas id="uploadsChart" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visits per day -->
+    <div class="col-md-6 mb-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Visits per day</h5>
+          <canvas id="visitsChart" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-2">
+    <!-- Subject downloads chart -->
+    <div class="col-md-6 mb-3">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Downloads by subject</h5>
+          <canvas id="subjectDownloadsChart" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top resources & active users -->
+    <div class="col-md-6 mb-3">
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h5 class="card-title">Top 5 resources (by downloads)</h5>
+          <ul class="list-group list-group-flush">
+            {% for r in top_resources %}
+              <li class="list-group-item d-flex justify-content-between">
+                <span>{{ r.title|truncatechars:30 }}</span>
+                <span class="badge text-bg-primary">{{ r.download_count }} downloads</span>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No resources yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Most active users (by uploads)</h5>
+          <ul class="list-group list-group-flush">
+            {% for u in active_users %}
+              <li class="list-group-item">
+                <strong>{{ u.username }}</strong>
+                <br>
+                <small class="text-muted">
+                  Uploads: {{ u.uploads_count }},
+                  Ratings given: {{ u.ratings_given }},
+                  Comments: {{ u.comments_made }}
+                </small>
+              </li>
+            {% empty %}
+              <li class="list-group-item text-muted">No activity yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Data from Django
+  const uploadsLabels = JSON.parse('{{ uploads_labels_json|escapejs }}');
+  const uploadsCounts = JSON.parse('{{ uploads_counts_json|escapejs }}');
+
+  const visitsLabels = JSON.parse('{{ visits_labels_json|escapejs }}');
+  const visitsCounts = JSON.parse('{{ visits_counts_json|escapejs }}');
+
+  const subjDownloadLabels = JSON.parse('{{ subject_download_labels_json|escapejs }}');
+  const subjDownloadCounts = JSON.parse('{{ subject_download_counts_json|escapejs }}');
+
+  // Uploads per day chart
+  const uploadsCtx = document.getElementById('uploadsChart').getContext('2d');
+  new Chart(uploadsCtx, {
+    type: 'line',
+    data: {
+      labels: uploadsLabels,
+      datasets: [{
+        label: 'Uploads',
+        data: uploadsCounts,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  // Visits per day chart
+  const visitsCtx = document.getElementById('visitsChart').getContext('2d');
+  new Chart(visitsCtx, {
+    type: 'line',
+    data: {
+      labels: visitsLabels,
+      datasets: [{
+        label: 'Visits',
+        data: visitsCounts,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  // Downloads by subject chart
+  const subjCtx = document.getElementById('subjectDownloadsChart').getContext('2d');
+  new Chart(subjCtx, {
+    type: 'bar',
+    data: {
+      labels: subjDownloadLabels,
+      datasets: [{
+        label: 'Downloads',
+        data: subjDownloadCounts,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+</script>
+{% endblock %}

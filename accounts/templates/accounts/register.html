@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+  <div class="card shadow-lg border-0" style="max-width: 520px; width: 100%; border-radius: 18px;">
+    <div class="card-body p-4">
+
+      <div class="text-center mb-3">
+        <h3 class="mb-0">Create your account 🧑‍🎓</h3>
+        <p class="text-muted small mb-0">Join Knowledgex and share resources with your college</p>
+      </div>
+
+      {% if messages %}
+        <div class="mb-2">
+          {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} py-2 mb-1 small">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Username</label>
+            {{ form.username }}
+            {% if form.username.errors %}
+              <div class="text-danger small mt-1">
+                {% for err in form.username.errors %}{{ err }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}
+              <div class="text-danger small mt-1">
+                {% for err in form.email.errors %}{{ err }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Password</label>
+            {{ form.password }}
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Confirm password</label>
+            {{ form.confirm_password }}
+            {% if form.confirm_password.errors %}
+              <div class="text-danger small mt-1">
+                {% for err in form.confirm_password.errors %}{{ err }}{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          {% if form.non_field_errors %}
+            <div class="col-12">
+              <div class="text-danger small">
+                {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary w-100">
+              Create account
+            </button>
+          </div>
+        </div>
+      </form>
+
+      <p class="text-center mt-3 small text-muted mb-0">
+        Already have an account?
+        <a href="{% url 'login' %}">Login</a>
+      </p>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

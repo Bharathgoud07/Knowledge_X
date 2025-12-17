@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<style>
+.edit-wrapper {
+    max-width: 850px;
+    margin: 0 auto;
+}
+.edit-card {
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    padding: 32px;
+    background: #fff;
+}
+.edit-avatar {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+.form-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #374151;
+}
+</style>
+
+<div class="edit-wrapper mt-4">
+  <div class="edit-card">
+
+    <h3 class="text-center mb-4">Edit Your Profile</h3>
+
+    <!-- Avatar -->
+    <div class="text-center mb-3">
+      <img 
+        src="{% if profile.picture %}{{ profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
+        class="edit-avatar"
+        alt="Avatar"
+      >
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="row g-3">
+      {% csrf_token %}
+
+      <!-- USER FORM -->
+      <div class="col-md-6">
+        <label class="form-label">Username</label>
+        {{ u_form.username }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Email</label>
+        {{ u_form.email }}
+      </div>
+
+      <!-- PROFILE FORM FIELDS -->
+      <div class="col-md-6">
+        <label class="form-label">Full Name</label>
+        {{ p_form.full_name }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">College</label>
+        {{ p_form.college }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Branch</label>
+        {{ p_form.branch }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Location</label>
+        {{ p_form.location }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">Bio</label>
+        {{ p_form.bio }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">GitHub URL</label>
+        {{ p_form.github }}
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">LinkedIn URL</label>
+        {{ p_form.linkedin }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">Website URL</label>
+        {{ p_form.website_url }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">Profile Picture</label>
+        {{ p_form.picture }}
+      </div>
+
+      <div class="col-12 mt-3">
+        <button class="btn btn-primary w-100">Save Changes</button>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+
+{% endblock %}

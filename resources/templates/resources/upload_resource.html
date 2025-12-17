@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow p-4 mx-auto" style="max-width: 650px;">
+    <h3 class="mb-3">Upload Resource</h3>
+    <p class="text-muted mb-3">
+      Upload notes, handwritten notes, important questions, or diagrams.
+      Allowed file types:
+      <strong>PDF, JPG, JPEG, PNG, DOCX, ZIP, PPT, PPTX</strong>.
+    </p>
+
+    <form method="POST" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      {{ form.non_field_errors }}
+
+      <div class="mb-3">
+        {{ form.title.label_tag }}
+        {{ form.title }}
+        {{ form.title.errors }}
+      </div>
+
+      <div class="mb-3">
+        {{ form.description.label_tag }}
+        {{ form.description }}
+        {{ form.description.errors }}
+      </div>
+
+      <div class="row g-3">
+  <div class="col-md-6">
+    <label class="form-label">Branch</label>
+    <select id="branchSelect" class="form-select">
+      <option value="">All</option>
+      <option value="CSE">CSE</option>
+      <option value="ECE">ECE</option>
+      <option value="EEE">EEE</option>
+      <option value="MECH">MECH</option>
+      <!-- etc -->
+    </select>
+  </div>
+
+  <div class="col-md-6">
+    <label class="form-label">Subject</label>
+    <select id="subjectSelect" name="subject" class="form-select">
+      {% for subj in form.fields.subject.queryset %}
+        <option value="{{ subj.id }}" data-branch="{{ subj.branch }}">
+          {{ subj.name }} ({{ subj.branch|default:'General' }})
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<script>
+  const branchSelect = document.getElementById('branchSelect');
+  const subjectSelect = document.getElementById('subjectSelect');
+
+  function filterSubjects() {
+    const b = branchSelect.value;
+    for (const opt of subjectSelect.options) {
+      const ob = opt.getAttribute('data-branch') || '';
+      if (!b || ob === b) {
+        opt.hidden = false;
+      } else {
+        opt.hidden = true;
+      }
+    }
+  }
+  branchSelect.addEventListener('change', filterSubjects);
+  filterSubjects();
+</script>
+
+
+      <div class="mb-3">
+        {{ form.semester.label_tag }}
+        {{ form.semester }}
+        {{ form.semester.errors }}
+      </div>
+
+      <div class="mb-3">
+        {{ form.resource_type.label_tag }}
+        {{ form.resource_type }}
+        {{ form.resource_type.errors }}
+      </div>
+
+      <div class="mb-3">
+        {{ form.file.label_tag }}
+        {{ form.file }}
+        {{ form.file.errors }}
+      </div>
+
+      <button type="submit" class="btn btn-primary mt-2">Upload</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

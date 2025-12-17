@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>All Resources</h3>
+    <a href="{% url 'upload_resource' %}" class="btn btn-primary">
+      <i class="bi bi-upload me-1"></i> Upload Resource
+    </a>
+  </div>
+
+  <div class="row">
+    <!-- Filters & Sorting -->
+    <div class="col-md-8">
+      <div class="card shadow-sm mb-3 p-3">
+        <form method="get" class="row g-2">
+          <div class="col-md-4">
+            <input
+              type="text"
+              name="q"
+              class="form-control"
+              placeholder="Search title, subject, uploader..."
+              value="{{ q|default:'' }}"
+            >
+          </div>
+
+          <div class="col-md-3">
+            <select name="subject" class="form-select">
+              <option value="">All subjects</option>
+              {% for s in subjects %}
+                <option value="{{ s.id }}" {% if subject_filter|default:'' == s.id|stringformat:'s' %}selected{% endif %}>
+                  {{ s.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-2">
+            <select name="semester" class="form-select">
+              <option value="">Sem</option>
+              {% for val,label in semester_choices %}
+                <option value="{{ val }}" {% if semester_filter|default:'' == val|stringformat:'s' %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <select name="resource_type" class="form-select">
+              <option value="">Type</option>
+              {% for val,label in resource_type_choices %}
+                <option value="{{ val }}" {% if resource_type_filter == val %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <select name="sort" class="form-select">
+              <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest first</option>
+              <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest first</option>
+              <option value="downloads" {% if sort == "downloads" %}selected{% endif %}>Most downloaded</option>
+              <option value="az" {% if sort == "az" %}selected{% endif %}>Title A–Z</option>
+              <option value="subject" {% if sort == "subject" %}selected{% endif %}>Subject wise</option>
+            </select>
+          </div>
+
+          <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-outline-secondary">
+              <i class="bi bi-funnel me-1"></i> Apply
+            </button>
+          </div>
+
+          <div class="col-md-2 d-grid">
+            <a href="{% url 'resource_list' %}" class="btn btn-light">
+              Clear
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Highlight card (top downloaded) -->
+    <div class="col-md-4">
+      {% if top_downloads %}
+      <div class="card shadow-sm mb-3">
+        <div class="card-header bg-light">
+          <strong>Top downloaded</strong>
+        </div>
+        <div class="card-body">
+          <h6 class="mb-1">
+            <a href="{% url 'resource_detail' top_downloads.pk %}" class="text-decoration-none">
+              {{ top_downloads.title }}
+            </a>
+          </h6>
+          <div class="small text-muted mb-1">
+            {{ top_downloads.subject|default:"N/A" }} •
+            {{ top_downloads.download_count }} downloads •
+            ⭐ {{ top_downloads.average_rating }}/5
+          </div>
+          <a href="{% url 'resource_detail' top_downloads.pk %}" class="btn btn-sm btn-outline-primary">
+            View resource
+          </a>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Resource list -->
+  <div class="card shadow-sm">
+    <div class="card-body p-0">
+      {% if page_obj.object_list %}
+      <table class="table mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Title</th>
+            <th>Subject</th>
+            <th>Sem</th>
+            <th>Type</th>
+            <th class="text-center">Views</th>
+            <th class="text-center">Downloads</th>
+            <th class="text-center">Rating</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in page_obj %}
+          <tr>
+            <td>
+              <a href="{% url 'resource_detail' r.pk %}" class="fw-semibold text-decoration-none">
+                {{ r.title }}
+              </a>
+              <div class="small text-muted">
+                by {{ r.owner.username }} • {{ r.created_at|date:"M d, Y" }}
+              </div>
+            </td>
+            <td>{{ r.subject|default:"—" }}</td>
+            <td>
+              {% if r.semester %}
+                {{ r.get_semester_display }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td>
+              {% for val,label in resource_type_choices %}
+                {% if val == r.resource_type %}{{ label }}{% endif %}
+              {% endfor %}
+            </td>
+            <td class="text-center">{{ r.view_count }}</td>
+            <td class="text-center">{{ r.download_count }}</td>
+            <td class="text-center">
+              ⭐ {{ r.average_rating }}/5
+            </td>
+            <td class="text-end">
+              <a href="{% url 'resource_detail' r.pk %}" class="btn btn-sm btn-outline-secondary">
+                Open
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="p-3 text-center text-muted">
+          No resources found. Try changing filters or upload a new one.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.paginator.num_pages > 1 %}
+  <nav class="mt-3">
+    <ul class="pagination justify-content-center mb-0">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-item" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&subject={{ subject_filter }}&semester={{ semester_filter }}&resource_type={{ resource_type_filter }}&sort={{ sort }}">Previous</a>
+        </li>
+      {% endif %}
+
+      {% for num in page_obj.paginator.page_range %}
+        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+          <a class="page-link" href="?page={{ num }}&q={{ q }}&subject={{ subject_filter }}&semester={{ semester_filter }}&resource_type={{ resource_type_filter }}&sort={{ sort }}">
+            {{ num }}
+          </a>
+        </li>
+      {% endfor %}
+
+      {% if page_obj.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page_obj.next_page_number }}&q={{ q }}&subject={{ subject_filter }}&semester={{ semester_filter }}&resource_type={{ resource_type_filter }}&sort={{ sort }}">Next</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>Notifications</h3>
+  <hr>
+
+  {% if notifications %}
+    <ul class="list-group">
+      {% for n in notifications %}
+        <li class="list-group-item d-flex justify-content-between align-items-center
+                   {% if not n.is_read %}fw-bold{% endif %}">
+          <div>
+            {{ n.message }}
+            <br>
+            <small class="text-muted">{{ n.created_at|date:"M d, Y H:i" }}</small>
+          </div>
+          <div>
+            {% if not n.is_read %}
+              <a href="{% url 'notification_mark_read' n.pk %}" class="btn btn-sm btn-outline-primary">
+                Mark as read
+              </a>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted">No notifications yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

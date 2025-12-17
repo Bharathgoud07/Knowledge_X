@@ -1,0 +1,370 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="card shadow p-4">
+
+    <!-- Header: title + verification + stats -->
+    <div class="d-flex justify-content-between align-items-start mb-2">
+      <div>
+        <h3 class="mb-1">{{ resource.title }}</h3>
+
+        <p class="text-muted mb-1">
+          Subject:
+          {% if resource.subject %}{{ resource.subject }}{% else %}N/A{% endif %}
+          |
+          {% if resource.semester %}Semester: {{ resource.semester }}{% else %}Semester: N/A{% endif %}
+          |
+          Type:
+          {% for val,label in resource_type_choices %}
+            {% if val == resource.resource_type %}{{ label }}{% endif %}
+          {% endfor %}
+        </p>
+
+        <p class="text-muted mb-0">
+          Uploaded by
+          <a href="{% url 'public_profile' resource.owner.id %}">
+            {{ resource.owner.username }}
+          </a>
+          |
+          Views: {{ resource.view_count }}
+          |
+          Downloads: {{ resource.download_count }}
+          |
+          Rating: {{ resource.average_rating }}/5 ({{ resource.rating_count }} votes)
+        </p>
+      </div>
+
+      <!-- Verification badge -->
+      <div class="text-end">
+        {% if resource.verification_status == "APPROVED" %}
+          <span class="badge bg-success">Trusted material</span>
+        {% elif resource.verification_status == "REJECTED" %}
+          <span class="badge bg-danger">Rejected</span>
+        {% else %}
+          <span class="badge bg-secondary">Pending review</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="row">
+      <!-- LEFT COLUMN -->
+      <div class="col-lg-8">
+
+        <!-- Description -->
+        <p>{{ resource.description }}</p>
+
+        <!-- Action buttons -->
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <a href="{% url 'resource_download' resource.pk %}" class="btn btn-primary">
+            Download file
+          </a>
+
+          <a href="{% url 'resource_viewer' resource.pk %}" class="btn btn-outline-secondary">
+            View Online
+          </a>
+
+          {% if is_favorite %}
+            <a href="{% url 'resource_toggle_favorite' resource.pk %}" class="btn btn-outline-warning">
+              ★ Remove from Saved
+            </a>
+          {% else %}
+            <a href="{% url 'resource_toggle_favorite' resource.pk %}" class="btn btn-outline-warning">
+              ☆ Save / Favorite
+            </a>
+          {% endif %}
+        </div>
+
+        {% if user.is_staff %}
+        <hr class="mt-4">
+        <h5>Admin Verification</h5>
+        <form method="post" action="{% url 'verify_resource' resource.pk %}" class="row g-2">
+          {% csrf_token %}
+          <div class="col-md-3">
+            <select name="action" class="form-select form-select-sm" required>
+              <option value="">Select action</option>
+              <option value="APPROVED">Approve</option>
+              <option value="REJECTED">Reject</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <input type="text"
+                   name="note"
+                   class="form-control form-control-sm"
+                   placeholder="Optional note (visible to uploader)">
+          </div>
+          <div class="col-md-3">
+            <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+              Update
+            </button>
+          </div>
+        </form>
+        {% if resource.verification_note %}
+          <p class="mt-2 small text-muted">
+            Last note: {{ resource.verification_note }}
+          </p>
+        {% endif %}
+        {% endif %}
+
+        <!-- Share link -->
+        <div class="mt-3">
+          <label class="form-label">Share link</label>
+          <div class="input-group">
+            <input
+              type="text"
+              id="shareLink"
+              class="form-control"
+              readonly
+              value="{{ request.build_absolute_uri }}"
+            >
+            <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+              Copy
+            </button>
+          </div>
+          <small class="text-muted">
+            Note: Only logged-in users can open this link.
+          </small>
+        </div>
+
+        <hr class="my-4">
+
+        <!-- Rating form -->
+        <h5>Rate this resource</h5>
+        <form method="post" class="row g-2 mb-3">
+          {% csrf_token %}
+          <div class="col-md-3">
+            {{ rating_form.stars }}
+          </div>
+          <div class="col-md-3">
+            <button type="submit" name="rating_submit" class="btn btn-sm btn-success">
+              Save Rating
+            </button>
+          </div>
+        </form>
+
+        <hr>
+
+        <!-- AI Placeholder -->
+        <h5>AI Helper (planned feature)</h5>
+        <p class="text-muted small">
+          These fields are placeholders. In a future version, they can be filled automatically
+          by connecting this app to an AI API.
+        </p>
+
+        <div class="mb-2">
+          <strong>Summary:</strong>
+          <p class="mb-1">
+            {% if resource.auto_summary %}
+              {{ resource.auto_summary }}
+            {% else %}
+              Not generated yet.
+            {% endif %}
+          </p>
+        </div>
+
+        <div class="mb-2">
+          <strong>Important Questions:</strong>
+          {% if resource.auto_questions %}
+            <ul class="mb-1">
+              {% for q in resource.auto_questions.splitlines %}
+                {% if q %}
+                  <li>{{ q }}</li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="mb-1">Not generated yet.</p>
+          {% endif %}
+        </div>
+
+        <div class="mb-2">
+          <strong>Diagram / Explanation Notes:</strong>
+          <p class="mb-1">
+            {% if resource.auto_diagram_notes %}
+              {{ resource.auto_diagram_notes }}
+            {% else %}
+              Not generated yet.
+            {% endif %}
+          </p>
+        </div>
+
+        <!-- Comments section -->
+        <hr>
+        <h5>Comments ({{ comments|length }})</h5>
+
+        {% if comments %}
+          <ul class="list-group mb-3">
+            {% for comment in comments %}
+              <li class="list-group-item">
+                <div class="d-flex">
+                  <div class="me-3 rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+                       style="width:34px;height:34px;font-size:0.85rem;">
+                    {{ comment.user.username|first|upper }}
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between">
+                      <strong>{{ comment.user.username }}</strong>
+                      <small class="text-muted">{{ comment.created_at|date:"M d, Y H:i" }}</small>
+                    </div>
+                    <p class="mb-1 mt-1">{{ comment.text }}</p>
+
+                    <a href="#" class="small text-decoration-none"
+                       onclick="toggleReplyForm({{ comment.id }});return false;">
+                      Reply
+                    </a>
+
+                    {% if comment.replies.all %}
+                      <div class="mt-2 ms-4 border-start ps-3">
+                        {% for reply in comment.replies.all %}
+                          <div class="mb-2">
+                            <div class="d-flex justify-content-between">
+                              <strong>{{ reply.user.username }}</strong>
+                              <small class="text-muted">{{ reply.created_at|date:"M d, Y H:i" }}</small>
+                            </div>
+                            <p class="mb-1">{{ reply.text }}</p>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+
+                    <!-- Hidden reply form -->
+                    <form method="post" class="mt-2 d-none" id="reply-form-{{ comment.id }}">
+                      {% csrf_token %}
+                      <input type="hidden" name="parent_id" value="{{ comment.id }}">
+                      <textarea name="text" class="form-control" rows="2"
+                                placeholder="Write a reply..." required></textarea>
+                      <button type="submit" name="comment_submit" class="btn btn-sm btn-outline-primary mt-1">
+                        Post Reply
+                      </button>
+                      <button type="button" class="btn btn-sm btn-link mt-1"
+                              onclick="toggleReplyForm({{ comment.id }});">
+                        Cancel
+                      </button>
+                    </form>
+
+                  </div>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No comments yet. Be the first to comment!</p>
+        {% endif %}
+
+        <!-- Add new top-level comment -->
+        <h6>Add a comment</h6>
+        <form method="post">
+          {% csrf_token %}
+          {{ comment_form.text }}
+          <button type="submit" name="comment_submit" class="btn btn-sm btn-primary mt-2">
+            Post Comment
+          </button>
+        </form>
+
+        <hr class="mt-4">
+
+        <!-- Report form -->
+        <h5>Report this resource</h5>
+        <p class="text-muted">
+          If this material is incorrect, illegal, or duplicate, you can report it.
+        </p>
+
+        <form method="post" action="{% url 'report_resource' resource.pk %}">
+          {% csrf_token %}
+          <div class="mb-3">
+            <textarea
+              name="reason"
+              class="form-control"
+              rows="3"
+              placeholder="Describe the issue..."
+              required
+            ></textarea>
+          </div>
+          <button type="submit" class="btn btn-outline-danger btn-sm">
+            🚩 Report
+          </button>
+        </form>
+
+      </div>
+
+      <!-- RIGHT COLUMN: uploader card -->
+      <div class="col-lg-4 mt-4 mt-lg-0">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-light">
+            <strong>Uploader</strong>
+          </div>
+          <div class="card-body text-center">
+            <img
+              src="{% if resource.owner.profile.picture %}{{ resource.owner.profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
+              class="rounded-circle mb-2"
+              style="width:80px;height:80px;object-fit:cover;"
+              alt="Uploader avatar"
+            >
+            <h6 class="mb-0">
+              <a href="{% url 'public_profile' resource.owner.id %}">
+                {{ resource.owner.username }}
+              </a>
+            </h6>
+
+            {% if resource.owner.profile.college or resource.owner.profile.branch %}
+              <small class="text-muted d-block mt-1">
+                {% if resource.owner.profile.college %}{{ resource.owner.profile.college }}{% endif %}
+                {% if resource.owner.profile.branch %} • {{ resource.owner.profile.branch }}{% endif %}
+              </small>
+            {% endif %}
+
+            <hr>
+
+            <div class="d-flex justify-content-around mb-2">
+              <div class="text-center">
+                <div class="fw-bold">{{ resource.owner.resources.count }}</div>
+                <small class="text-muted">Uploads</small>
+              </div>
+              <div class="text-center">
+                <div class="fw-bold">{{ resource.owner.comments.count }}</div>
+                <small class="text-muted">Comments</small>
+              </div>
+            </div>
+
+            <!-- Social icons -->
+            <div class="mt-2 d-flex justify-content-center gap-3">
+              {% if resource.owner.profile.github %}
+                <a href="{{ resource.owner.profile.github }}" target="_blank" class="text-dark">
+                  <i class="bi bi-github" style="font-size:1.3rem;"></i>
+                </a>
+              {% endif %}
+              {% if resource.owner.profile.linkedin %}
+                <a href="{{ resource.owner.profile.linkedin }}" target="_blank" class="text-primary">
+                  <i class="bi bi-linkedin" style="font-size:1.3rem;"></i>
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- row -->
+
+  </div>
+</div>
+
+<script>
+function copyShareLink() {
+  const input = document.getElementById('shareLink');
+  input.select();
+  input.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(input.value)
+    .then(() => { alert('Link copied!'); })
+    .catch(() => { alert('Copy failed. Select and copy manually.'); });
+}
+
+function toggleReplyForm(id) {
+  const form = document.getElementById('reply-form-' + id);
+  if (!form) return;
+  form.classList.toggle('d-none');
+}
+</script>
+{% endblock %}
