@@ -1,60 +1,176 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block content %}
-<div class="container mt-4">
-  <h3 class="mb-3">Subject-wise Resource Dashboard</h3>
-  <p class="text-muted">
-    Overview of uploads, downloads, and views per subject.
-  </p>
+{% block title %}Subject Dashboard — KnowledgeX{% endblock %}
 
-  <div class="card shadow p-4">
-    <canvas id="subjectChart" height="120"></canvas>
+{% block content %}
+<div class="animate-in">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1"><i class="bi bi-pie-chart me-2"></i>Subject Dashboard</h3>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0;">
+        Overview of uploads, downloads, and views per subject
+      </p>
+    </div>
+    <a href="{% url 'resources:resource_list' %}" class="btn btn-outline-secondary btn-sm mt-2 mt-md-0">
+      <i class="bi bi-folder2-open me-1"></i>Browse Resources
+    </a>
   </div>
+
+  {% if labels %}
+
+  <!-- Summary stat cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-4">
+      <div class="glass-card p-3 text-center">
+        <div style="font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+          {{ labels|length }}
+        </div>
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);">Subjects</div>
+      </div>
+    </div>
+    <div class="col-sm-4">
+      <div class="glass-card p-3 text-center">
+        <div style="font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,#10b981,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+          {% for d in downloads %}{% if forloop.first %}{{ d }}{% endif %}{% endfor %}+
+        </div>
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);">Top Subject Downloads</div>
+      </div>
+    </div>
+    <div class="col-sm-4">
+      <div class="glass-card p-3 text-center">
+        <div style="font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#ef4444);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+          {% for u in uploads %}{% if forloop.first %}{{ u }}{% endif %}{% endfor %}
+        </div>
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);">Top Subject Uploads</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="row g-4">
+    <div class="col-lg-12">
+      <div class="glass-card p-4">
+        <h5 class="mb-4"><i class="bi bi-bar-chart me-2"></i>Uploads, Downloads & Views by Subject</h5>
+        <canvas id="subjectChart" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subject Table -->
+  <div class="glass-card mt-4">
+    <div class="px-4 py-3 border-bottom" style="border-color:var(--border) !important;">
+      <h5 class="mb-0"><i class="bi bi-table me-2"></i>Subject Breakdown</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Subject</th>
+            <th class="text-center">Uploads</th>
+            <th class="text-center">Downloads</th>
+            <th class="text-center">Views</th>
+            <th>Download Bar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i in labels %}
+          <tr>
+            <td style="font-weight:600;">{{ i }}</td>
+            <td class="text-center">{{ uploads|slice:forloop.counter0|slice:":1"|join:"" }}</td>
+            <td class="text-center">{{ downloads|slice:forloop.counter0|slice:":1"|join:"" }}</td>
+            <td class="text-center">{{ views|slice:forloop.counter0|slice:":1"|join:"" }}</td>
+            <td style="min-width:120px;">
+              <div class="progress" style="height:6px;background:var(--border);">
+                <div class="progress-bar" style="background:var(--primary);"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="glass-card p-5 text-center">
+    <div style="font-size:4rem;opacity:0.25;margin-bottom:1rem;">📊</div>
+    <h5 style="color:var(--text-muted);">No subject data yet</h5>
+    <p style="color:var(--text-muted);font-size:0.9rem;">Upload resources assigned to subjects to see analytics here.</p>
+    <a href="{% url 'resources:upload_resource' %}" class="btn btn-primary btn-sm mt-2">
+      <i class="bi bi-upload me-1"></i>Upload Resource
+    </a>
+  </div>
+  {% endif %}
+
 </div>
 
-<!-- Chart.js CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-  const labels = {{ labels|safe }};
-  const uploads = {{ uploads|safe }};
-  const downloads = {{ downloads|safe }};
-  const views = {{ views|safe }};
+  document.addEventListener('DOMContentLoaded', function() {
+    const labels = {{ labels|safe }};
+    if (!labels || labels.length === 0) return;
 
-  const ctx = document.getElementById('subjectChart').getContext('2d');
+    const uploads = {{ uploads|safe }};
+    const downloads = {{ downloads|safe }};
+    const views = {{ views|safe }};
 
-  new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: 'Uploads',
-          data: uploads,
-          borderWidth: 1
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const labelColor = isDark ? '#94a3b8' : '#64748b';
+
+    const ctx = document.getElementById('subjectChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Uploads',
+            data: uploads,
+            backgroundColor: 'rgba(99,102,241,0.55)',
+            borderColor: 'rgba(99,102,241,0.9)',
+            borderWidth: 1,
+            borderRadius: 5,
+          },
+          {
+            label: 'Downloads',
+            data: downloads,
+            backgroundColor: 'rgba(6,182,212,0.55)',
+            borderColor: 'rgba(6,182,212,0.9)',
+            borderWidth: 1,
+            borderRadius: 5,
+          },
+          {
+            label: 'Views',
+            data: views,
+            backgroundColor: 'rgba(245,158,11,0.55)',
+            borderColor: 'rgba(245,158,11,0.9)',
+            borderWidth: 1,
+            borderRadius: 5,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: labelColor, padding: 16 } }
         },
-        {
-          label: 'Downloads',
-          data: downloads,
-          borderWidth: 1
-        },
-        {
-          label: 'Views',
-          data: views,
-          borderWidth: 1
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { precision: 0 }
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, color: labelColor },
+            grid: { color: gridColor }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: labelColor, maxRotation: 35 }
+          }
         }
       }
-    }
+    });
   });
 </script>
 {% endblock %}

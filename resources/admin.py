@@ -10,6 +10,7 @@ from .models import (
     Comment,
     Rating,
     Notification,
+    Visit,
 )
 
 # --------------------------
@@ -17,15 +18,54 @@ from .models import (
 # --------------------------
 @admin.register(Subject)
 class SubjectAdmin(admin.ModelAdmin):
-    list_display = ("name",)
-    search_fields = ("name",)
+    list_display  = ("name", "abbreviation", "branch")
+    list_editable = ("abbreviation", "branch")
+    search_fields = ("name", "abbreviation", "branch")
+    list_per_page = 50
 
+
+# --------------------------
+# INLINES FOR RESOURCE
+# --------------------------
+class CommentInline(admin.TabularInline):
+    model = Comment
+    extra = 0
+    fields = ("user", "text", "parent", "created_at")
+    readonly_fields = ("created_at",)
+    show_change_link = True
+
+class RatingInline(admin.TabularInline):
+    model = Rating
+    extra = 0
+    fields = ("user", "stars", "created_at")
+    readonly_fields = ("created_at",)
+
+# --------------------------
+# RESOURCE ADMIN ACTIONS
+# --------------------------
+@admin.action(description="Approve selected resources")
+def approve_resources(modeladmin, request, queryset):
+    queryset.update(
+        verification_status="APPROVED",
+        verified_by=request.user,
+        verified_at=timezone.now()
+    )
+
+@admin.action(description="Reject selected resources")
+def reject_resources(modeladmin, request, queryset):
+    queryset.update(
+        verification_status="REJECTED",
+        verified_by=request.user,
+        verified_at=timezone.now()
+    )
 
 # --------------------------
 # RESOURCE ADMIN
 # --------------------------
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
+    inlines = [CommentInline, RatingInline]
+    actions = [approve_resources, reject_resources]
     list_display = (
         "title",
         "subject",
@@ -96,10 +136,22 @@ class ResourceAdmin(admin.ModelAdmin):
 
 
 # --------------------------
+# REPORT ADMIN ACTIONS
+# --------------------------
+@admin.action(description="Mark selected as Resolved")
+def mark_resolved(modeladmin, request, queryset):
+    queryset.update(status="RESOLVED", handled_at=timezone.now())
+
+@admin.action(description="Mark selected as Reviewed")
+def mark_reviewed(modeladmin, request, queryset):
+    queryset.update(status="REVIEWED", handled_at=timezone.now())
+
+# --------------------------
 # REPORT ADMIN
 # --------------------------
 @admin.register(Report)
 class ReportAdmin(admin.ModelAdmin):
+    actions = [mark_resolved, mark_reviewed]
     list_display = (
         "id",
         "resource",
@@ -173,3 +225,20 @@ class NotificationAdmin(admin.ModelAdmin):
     )
     list_filter = ("notif_type", "is_read", "created_at")
     search_fields = ("user__username", "message")
+
+
+# --------------------------
+# VISIT ADMIN
+# --------------------------
+@admin.register(Visit)
+class VisitAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "path", "method", "is_authenticated", "created_at")
+    list_filter = ("method", "is_authenticated", "created_at")
+    search_fields = ("user__username", "path")
+    readonly_fields = ("user", "path", "method", "is_authenticated", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        return False

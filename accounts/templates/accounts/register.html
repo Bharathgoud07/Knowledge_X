@@ -1,87 +1,213 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Register — KnowledgeX{% endblock %}
+
 {% block content %}
-<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
-  <div class="card shadow-lg border-0" style="max-width: 520px; width: 100%; border-radius: 18px;">
-    <div class="card-body p-4">
+<div class="auth-page">
+  <div class="auth-card glass-card animate-in" style="max-width:520px;">
 
-      <div class="text-center mb-3">
-        <h3 class="mb-0">Create your account 🧑‍🎓</h3>
-        <p class="text-muted small mb-0">Join Knowledgex and share resources with your college</p>
+    <!-- Header -->
+    <div class="auth-header mb-4">
+      <div style="font-size:2.8rem;margin-bottom:0.5rem;line-height:1;">
+        <i class="bi bi-mortarboard-fill" style="background:linear-gradient(135deg,#818cf8,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"></i>
       </div>
+      <h3 style="margin-bottom:0.25rem;">Join KnowledgeX</h3>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0;">Share resources with your college community</p>
+    </div>
 
-      {% if messages %}
-        <div class="mb-2">
-          {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} py-2 mb-1 small">
-              {{ message }}
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
+    <form method="post" novalidate id="registerForm">
+      {% csrf_token %}
+      <div class="row g-3">
 
-      <form method="post" novalidate>
-        {% csrf_token %}
-
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label">Username</label>
+        <!-- Username -->
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label" for="id_username"><i class="bi bi-person me-1"></i>Username</label>
             {{ form.username }}
-            {% if form.username.errors %}
-              <div class="text-danger small mt-1">
-                {% for err in form.username.errors %}{{ err }}{% endfor %}
-              </div>
-            {% endif %}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Email</label>
-            {{ form.email }}
-            {% if form.email.errors %}
-              <div class="text-danger small mt-1">
-                {% for err in form.email.errors %}{{ err }}{% endfor %}
-              </div>
-            {% endif %}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Password</label>
-            {{ form.password }}
-          </div>
-
-          <div class="col-md-6">
-            <label class="form-label">Confirm password</label>
-            {{ form.confirm_password }}
-            {% if form.confirm_password.errors %}
-              <div class="text-danger small mt-1">
-                {% for err in form.confirm_password.errors %}{{ err }}{% endfor %}
-              </div>
-            {% endif %}
-          </div>
-
-          {% if form.non_field_errors %}
-            <div class="col-12">
-              <div class="text-danger small">
-                {% for err in form.non_field_errors %}{{ err }}{% endfor %}
-              </div>
-            </div>
-          {% endif %}
-
-          <div class="col-12">
-            <button type="submit" class="btn btn-primary w-100">
-              Create account
-            </button>
+            {% if form.username.errors %}<div class="form-error">{% for e in form.username.errors %}{{ e }}{% endfor %}</div>{% endif %}
           </div>
         </div>
-      </form>
 
-      <p class="text-center mt-3 small text-muted mb-0">
-        Already have an account?
-        <a href="{% url 'login' %}">Login</a>
-      </p>
+        <!-- Email -->
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label" for="id_email"><i class="bi bi-envelope me-1"></i>Email</label>
+            {{ form.email }}
+            {% if form.email.errors %}<div class="form-error">{% for e in form.email.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+        </div>
 
+        <!-- Password -->
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label" for="id_password"><i class="bi bi-lock me-1"></i>Password</label>
+            <div class="input-group">
+              {{ form.password }}
+              <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('id_password','pwIcon1')">
+                <i class="bi bi-eye" id="pwIcon1"></i>
+              </button>
+            </div>
+            {% if form.password.errors %}<div class="form-error">{% for e in form.password.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+        </div>
+
+        <!-- Confirm Password -->
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label" for="id_confirm_password"><i class="bi bi-lock-fill me-1"></i>Confirm</label>
+            <div class="input-group">
+              {{ form.confirm_password }}
+              <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('id_confirm_password','pwIcon2')">
+                <i class="bi bi-eye" id="pwIcon2"></i>
+              </button>
+            </div>
+            {% if form.confirm_password.errors %}<div class="form-error">{% for e in form.confirm_password.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+        </div>
+
+        <!-- Password rules + strength -->
+        <div class="col-12">
+          <div class="p-2 rounded-3" style="background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.2);">
+            <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--primary);margin-bottom:0.35rem;">
+              <i class="bi bi-info-circle me-1"></i>Requirements
+            </div>
+            <ul class="mb-0 ps-3" style="font-size:0.78rem;color:var(--text-secondary);line-height:1.7;">
+              <li id="rule-length"><i class="bi bi-circle me-1" style="color:var(--text-muted);"></i>At least <strong>8 characters</strong></li>
+              <li id="rule-numeric"><i class="bi bi-circle me-1" style="color:var(--text-muted);"></i>Not entirely numeric</li>
+              <li id="rule-common"><i class="bi bi-circle me-1" style="color:var(--text-muted);"></i>Not a common password</li>
+              <li id="rule-match"><i class="bi bi-circle me-1" style="color:var(--text-muted);"></i>Both passwords match</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Password strength bar -->
+        <div class="col-12">
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;">Password strength</div>
+          <div class="progress" style="height:6px;">
+            <div id="pwStrengthBar" class="progress-bar" style="width:0%;transition:width 0.3s,background 0.3s;"></div>
+          </div>
+          <div id="pwStrengthText" style="font-size:0.72rem;color:var(--text-muted);margin-top:3px;"></div>
+        </div>
+
+        <!-- Non-field errors -->
+        {% if form.non_field_errors %}
+          <div class="col-12">
+            <div class="alert py-2 mb-0 small" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);color:#ef4444;">
+              {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <!-- Submit -->
+        <div class="col-12">
+          <button type="submit" class="btn-primary-custom w-full">
+            <i class="bi bi-person-plus me-2"></i>Create Account
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Footer -->
+    <div class="auth-footer" style="font-size:0.875rem;">
+      Already have an account? <a href="{% url 'accounts:login' %}" style="font-weight:600;">Sign in</a>
     </div>
   </div>
 </div>
+
+<script>
+function togglePwd(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (!input) return;
+  input.type = (input.type === 'password') ? 'text' : 'password';
+  icon.className = (input.type === 'text') ? 'bi bi-eye-slash' : 'bi bi-eye';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Fix form-control classes & input-group border-radius
+  ['id_username','id_email','id_password','id_confirm_password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains('form-control')) el.classList.add('form-control');
+    if ((id === 'id_password' || id === 'id_confirm_password') && el) {
+      el.style.borderRadius = 'var(--radius-sm) 0 0 var(--radius-sm)';
+    }
+  });
+
+  const pw1 = document.getElementById('id_password');
+  const pw2 = document.getElementById('id_confirm_password');
+  const bar = document.getElementById('pwStrengthBar');
+  const txt = document.getElementById('pwStrengthText');
+
+  // Live rule checkers
+  const ruleLength  = document.getElementById('rule-length');
+  const ruleNumeric = document.getElementById('rule-numeric');
+  const ruleCommon  = document.getElementById('rule-common');
+  const ruleMatch   = document.getElementById('rule-match');
+
+  const COMMON_PASSWORDS = ['password','password123','123456','12345678','qwerty','abc123','letmein','welcome','admin','iloveyou'];
+
+  function markRule(el, pass) {
+    if (!el) return;
+    const icon = el.querySelector('i');
+    if (pass) {
+      icon.className = 'bi bi-check-circle-fill me-1';
+      icon.style.color = 'var(--success)';
+      el.style.color = 'var(--success)';
+    } else {
+      icon.className = 'bi bi-circle me-1';
+      icon.style.color = 'var(--text-muted)';
+      el.style.color = '';
+    }
+  }
+
+  function checkMatch() {
+    if (!pw2 || !pw2.value) return;
+    const ok = pw1.value === pw2.value;
+    markRule(ruleMatch, ok);
+  }
+
+  if (pw1 && bar) {
+    pw1.addEventListener('input', function() {
+      const val = this.value;
+
+      // Rule checks
+      const lenOk     = val.length >= 8;
+      const numericOk = !/^\d+$/.test(val) || val.length === 0;
+      const commonOk  = !COMMON_PASSWORDS.includes(val.toLowerCase());
+
+      markRule(ruleLength,  lenOk);
+      markRule(ruleNumeric, numericOk);
+      markRule(ruleCommon,  commonOk);
+
+      // Strength
+      let score = 0;
+      if (lenOk) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+      if (val.length >= 12) score++;
+
+      const levels = [
+        { pct:'0%',   color:'',         label:'' },
+        { pct:'20%',  color:'#ef4444',  label:'Very Weak' },
+        { pct:'40%',  color:'#f59e0b',  label:'Weak' },
+        { pct:'60%',  color:'#eab308',  label:'Fair' },
+        { pct:'80%',  color:'#06b6d4',  label:'Good' },
+        { pct:'100%', color:'#10b981',  label:'Strong' },
+      ];
+      const lvl = levels[score] || levels[0];
+      bar.style.width = val.length ? lvl.pct : '0%';
+      bar.style.background = lvl.color;
+      txt.textContent = val.length ? lvl.label : '';
+
+      checkMatch();
+    });
+  }
+
+  if (pw2) {
+    pw2.addEventListener('input', checkMatch);
+  }
+});
+</script>
 {% endblock %}

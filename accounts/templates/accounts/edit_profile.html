@@ -1,114 +1,169 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Edit Profile — KnowledgeX{% endblock %}
+
 {% block content %}
-<style>
-.edit-wrapper {
-    max-width: 850px;
-    margin: 0 auto;
-}
-.edit-card {
-    border-radius: 16px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-    padding: 32px;
-    background: #fff;
-}
-.edit-avatar {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 50%;
-    border: 4px solid #fff;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-}
-.form-label {
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #374151;
-}
-</style>
+<div class="animate-in" style="max-width:860px;margin:0 auto;">
 
-<div class="edit-wrapper mt-4">
-  <div class="edit-card">
-
-    <h3 class="text-center mb-4">Edit Your Profile</h3>
-
-    <!-- Avatar -->
-    <div class="text-center mb-3">
-      <img 
-        src="{% if profile.picture %}{{ profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
-        class="edit-avatar"
-        alt="Avatar"
-      >
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1"><i class="bi bi-pencil-square me-2"></i>Edit Profile</h3>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0;">Keep your profile up to date</p>
     </div>
-
-    <form method="post" enctype="multipart/form-data" class="row g-3">
-      {% csrf_token %}
-
-      <!-- USER FORM -->
-      <div class="col-md-6">
-        <label class="form-label">Username</label>
-        {{ u_form.username }}
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">Email</label>
-        {{ u_form.email }}
-      </div>
-
-      <!-- PROFILE FORM FIELDS -->
-      <div class="col-md-6">
-        <label class="form-label">Full Name</label>
-        {{ p_form.full_name }}
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">College</label>
-        {{ p_form.college }}
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">Branch</label>
-        {{ p_form.branch }}
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">Location</label>
-        {{ p_form.location }}
-      </div>
-
-      <div class="col-12">
-        <label class="form-label">Bio</label>
-        {{ p_form.bio }}
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">GitHub URL</label>
-        {{ p_form.github }}
-      </div>
-
-      <div class="col-md-6">
-        <label class="form-label">LinkedIn URL</label>
-        {{ p_form.linkedin }}
-      </div>
-
-      <div class="col-12">
-        <label class="form-label">Website URL</label>
-        {{ p_form.website_url }}
-      </div>
-
-      <div class="col-12">
-        <label class="form-label">Profile Picture</label>
-        {{ p_form.picture }}
-      </div>
-
-      <div class="col-12 mt-3">
-        <button class="btn btn-primary w-100">Save Changes</button>
-      </div>
-
-    </form>
-
+    <a href="{% url 'accounts:my_profile' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left me-1"></i>Back to Profile
+    </a>
   </div>
+
+  <form method="post" enctype="multipart/form-data" id="editProfileForm">
+    {% csrf_token %}
+
+    <div class="row g-4">
+      <!-- LEFT: Avatar & Account -->
+      <div class="col-lg-4">
+
+        <!-- Avatar card -->
+        <div class="glass-card p-4 text-center mb-3">
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:1rem;font-weight:600;">Profile Photo</div>
+          <div class="position-relative d-inline-block mb-3">
+            <img id="avatarPreview"
+                 src="{% if profile.picture %}{{ profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
+                 class="rounded-circle"
+                 style="width:100px;height:100px;object-fit:cover;border:3px solid var(--border);box-shadow:var(--shadow-md);"
+                 alt="Avatar"
+                 onerror="this.src='{% static 'default.png' %}'">
+            <label for="{{ p_form.picture.id_for_label }}" class="position-absolute bottom-0 end-0 btn btn-primary btn-sm rounded-circle"
+                   style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;"
+                   title="Change photo">
+              <i class="bi bi-camera-fill" style="font-size:0.85rem;"></i>
+            </label>
+          </div>
+          <div style="display:none;">{{ p_form.picture }}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">Click the camera icon to change</div>
+        </div>
+
+        <!-- Account info -->
+        <div class="glass-card p-3">
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.75rem;font-weight:600;">Account Info</div>
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            {{ u_form.username }}
+            {% if u_form.username.errors %}<div class="form-error">{% for e in u_form.username.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+          <div class="form-group mb-0">
+            <label class="form-label">Email</label>
+            {{ u_form.email }}
+            {% if u_form.email.errors %}<div class="form-error">{% for e in u_form.email.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Profile details -->
+      <div class="col-lg-8">
+        <div class="glass-card p-4">
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:1rem;font-weight:600;">Personal Details</div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="form-group mb-0">
+                <label class="form-label">Full Name</label>
+                {{ p_form.full_name }}
+                {% if p_form.full_name.errors %}<div class="form-error">{% for e in p_form.full_name.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group mb-0">
+                <label class="form-label">Location</label>
+                {{ p_form.location }}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group mb-0">
+                <label class="form-label">College</label>
+                {{ p_form.college }}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group mb-0">
+                <label class="form-label">Branch / Department</label>
+                {{ p_form.branch }}
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="form-group mb-0">
+                <label class="form-label">Bio</label>
+                {{ p_form.bio }}
+                {% if p_form.bio.errors %}<div class="form-error">{% for e in p_form.bio.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          <hr style="border-color:var(--border);margin:1.25rem 0;">
+          <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:1rem;font-weight:600;">Social Links</div>
+
+          <div class="row g-3">
+            <div class="col-md-4">
+              <div class="form-group mb-0">
+                <label class="form-label"><i class="bi bi-github me-1"></i>GitHub URL</label>
+                {{ p_form.github }}
+                {% if p_form.github.errors %}<div class="form-error">{% for e in p_form.github.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group mb-0">
+                <label class="form-label"><i class="bi bi-linkedin me-1"></i>LinkedIn URL</label>
+                {{ p_form.linkedin }}
+                {% if p_form.linkedin.errors %}<div class="form-error">{% for e in p_form.linkedin.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group mb-0">
+                <label class="form-label"><i class="bi bi-globe me-1"></i>Website URL</label>
+                {{ p_form.website_url }}
+                {% if p_form.website_url.errors %}<div class="form-error">{% for e in p_form.website_url.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-3 mt-3">
+          <button type="submit" class="btn-primary-custom flex-grow-1">
+            <i class="bi bi-check-circle me-2"></i>Save Changes
+          </button>
+          <a href="{% url 'accounts:change_password' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-key me-1"></i>Password
+          </a>
+        </div>
+      </div>
+    </div>
+  </form>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Live avatar preview
+  const picInput = document.getElementById('{{ p_form.picture.id_for_label }}');
+  const preview = document.getElementById('avatarPreview');
+  if (picInput && preview) {
+    picInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => { preview.src = e.target.result; };
+        reader.readAsDataURL(this.files[0]);
+      }
+    });
+  }
+
+  // Add form-control class to all inputs if missing
+  document.querySelectorAll('#editProfileForm input:not([type=file]):not([type=hidden]), #editProfileForm textarea, #editProfileForm select').forEach(el => {
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'textarea' && !el.classList.contains('form-control')) el.classList.add('form-control');
+    else if (tag === 'input' && !el.classList.contains('form-control')) el.classList.add('form-control');
+    else if (tag === 'select' && !el.classList.contains('form-select')) el.classList.add('form-select');
+  });
+});
+</script>
 {% endblock %}

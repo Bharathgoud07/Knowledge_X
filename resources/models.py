@@ -39,9 +39,22 @@ class Subject(models.Model):
         max_length=50,
         blank=True,  # e.g. "CSE", "ECE"
     )
+    abbreviation = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text='Short form e.g. "OS", "DBMS", "CN", "DS"',
+    )
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
-        return f"{self.name} ({self.branch})" if self.branch else self.name
+        parts = [self.name]
+        if self.abbreviation:
+            parts.append(f"({self.abbreviation})")
+        if self.branch:
+            parts.append(f"[{self.branch}]")
+        return " ".join(parts)
 
 
 # -------------------------
@@ -128,6 +141,13 @@ class Resource(models.Model):
     auto_diagram_notes = models.TextField(
         blank=True,
         help_text="AI-generated diagram / explanation notes.",
+    )
+    
+    # Store page-by-page extracted text for Chat with PDF feature
+    extracted_text_pages = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON mapping of page numbers to text content."
     )
 
     def __str__(self):
@@ -298,6 +318,7 @@ class Notification(models.Model):
         ("RATING", "Rating"),
         ("REPORT", "Report"),
         ("REPORT_STATUS", "Report Status Update"),
+        ("VERIFICATION", "Verification Update"),
     ]
 
     user = models.ForeignKey(

@@ -12,8 +12,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -26,6 +31,9 @@ SECRET_KEY = 'django-insecure-p3(d=d4k1w)j)37zon*2350t*v3&+60-qdreompi7o9!j(6%##
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+# Allow iframes from the same origin to display PDF previews
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 
 # Application definition
@@ -134,10 +142,13 @@ MEDIA_ROOT = BASE_DIR / "media"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-LOGIN_URL = 'login'
-LOGIN_REDIRECT_URL = 'home'
-LOGOUT_REDIRECT_URL = 'login'
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'core:home'
+LOGOUT_REDIRECT_URL = 'accounts:login'
 # settings.py
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'webmaster@localhost'
+
+# Gemini API Key for real AI integration
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

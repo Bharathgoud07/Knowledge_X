@@ -1,120 +1,116 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}My Activity — KnowledgeX{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-  <h3 class="mb-3">My Activity Dashboard</h3>
+<div class="animate-in">
+  <div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-activity me-2"></i>My Activity Dashboard</h3>
+  </div>
 
   <!-- Summary cards -->
-  <div class="row g-3 mb-3">
-    <div class="col-md-3">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body text-center">
-          <p class="text-muted mb-1">Uploads</p>
-          <h3 class="mb-0 fw-bold">{{ uploads_count }}</h3>
-        </div>
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+      <div class="stat-card glass-card">
+        <div class="stat-value">{{ uploads_count }}</div>
+        <div class="stat-label">Uploads</div>
       </div>
     </div>
-
-    <div class="col-md-3">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body text-center">
-          <p class="text-muted mb-1">Favorites Saved</p>
-          <h3 class="mb-0 fw-bold">{{ favorites_count }}</h3>
-        </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="stat-card glass-card">
+        <div class="stat-value">{{ favorites_count }}</div>
+        <div class="stat-label">Favorites Saved</div>
       </div>
     </div>
-
-    <div class="col-md-3">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body text-center">
-          <p class="text-muted mb-1">Ratings Received</p>
-          <h3 class="mb-0 fw-bold">{{ ratings_received }}</h3>
-        </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="stat-card glass-card">
+        <div class="stat-value">{{ ratings_received }}</div>
+        <div class="stat-label">Ratings Received</div>
       </div>
     </div>
-
-    <div class="col-md-3">
-      <div class="card shadow-sm border-0 h-100">
-        <div class="card-body text-center">
-          <p class="text-muted mb-1">Views / Downloads</p>
-          <h4 class="mb-0 fw-bold">{{ total_views }} / {{ total_downloads }}</h4>
-        </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="stat-card glass-card">
+        <div class="stat-value">{{ total_views }} / {{ total_downloads }}</div>
+        <div class="stat-label">Views / Downloads</div>
       </div>
     </div>
   </div>
 
-  <!-- Chart -->
-  <div class="card shadow-sm border-0 mb-4">
-    <div class="card-body">
-      <h5 class="card-title mb-3">Views & Downloads per your upload</h5>
-      <canvas id="activityChart" height="110"></canvas>
+  <div class="row g-4">
+    <!-- Chart -->
+    <div class="col-lg-12">
+      <div class="glass-card p-4 h-100">
+        <h5 class="mb-4">Views & Downloads per upload</h5>
+        <canvas id="activityChart" height="100"></canvas>
+      </div>
     </div>
-  </div>
 
-  <!-- Table with each upload -->
-  <div class="card shadow-sm border-0">
-    <div class="card-body">
-      <h5 class="card-title mb-3">Your uploads (detailed)</h5>
+    <!-- Table -->
+    <div class="col-lg-12">
+      <div class="glass-card p-4">
+        <h5 class="mb-4">Your Uploads (Detailed)</h5>
 
-      {% if my_uploads %}
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
-            <thead class="table-light">
-              <tr>
-                <th>Title</th>
-                <th>Subject</th>
-                <th>Type</th>
-                <th class="text-center">Views</th>
-                <th class="text-center">Downloads</th>
-                <th class="text-center">Rating</th>
-                <th>Uploaded</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for res in my_uploads %}
+        {% if my_uploads %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
                 <tr>
-                  <td>
-                    <a href="{% url 'resource_detail' res.pk %}">
-                      {{ res.title }}
-                    </a>
-                  </td>
-                  <td>
-                    {% if res.subject %}{{ res.subject }}{% else %}N/A{% endif %}
-                  </td>
-                  <td>
-                    {% for val,label in resource_type_choices %}
-                      {% if val == res.resource_type %}{{ label }}{% endif %}
-                    {% endfor %}
-                  </td>
-                  <td class="text-center">{{ res.view_count }}</td>
-                  <td class="text-center">{{ res.download_count }}</td>
-                  <td class="text-center">
-                    {% if res.rating_count %}
-                      {{ res.average_rating }}/5 ({{ res.rating_count }})
-                    {% else %}
-                      –
-                    {% endif %}
-                  </td>
-                  <td>{{ res.created_at|date:"M d, Y H:i" }}</td>
-                  <td>
-                    {% if res.verification_status == "APPROVED" %}
-                      <span class="badge bg-success">Verified</span>
-                    {% elif res.verification_status == "REJECTED" %}
-                      <span class="badge bg-danger">Rejected</span>
-                    {% else %}
-                      <span class="badge bg-secondary">Pending</span>
-                    {% endif %}
-                  </td>
+                  <th>Title</th>
+                  <th>Subject</th>
+                  <th>Type</th>
+                  <th class="text-center">Views</th>
+                  <th class="text-center">Downloads</th>
+                  <th class="text-center">Rating</th>
+                  <th>Uploaded</th>
+                  <th>Status</th>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="text-muted mb-0">You haven’t uploaded anything yet.</p>
-      {% endif %}
+              </thead>
+              <tbody>
+                {% for res in my_uploads %}
+                  <tr>
+                    <td>
+                      <a href="{% url 'resources:resource_detail' res.pk %}" class="fw-semibold text-decoration-none" style="color:var(--text-main);">
+                        {{ res.title|truncatechars:40 }}
+                      </a>
+                    </td>
+                    <td class="small">{{ res.subject|default:"N/A" }}</td>
+                    <td class="small">
+                      {% for val,label in resource_type_choices %}
+                        {% if val == res.resource_type %}{{ label }}{% endif %}
+                      {% endfor %}
+                    </td>
+                    <td class="text-center small">{{ res.view_count }}</td>
+                    <td class="text-center small">{{ res.download_count }}</td>
+                    <td class="text-center small">
+                      {% if res.rating_count %}
+                        <span class="badge-gradient">⭐ {{ res.average_rating|floatformat:1 }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="small">{{ res.created_at|date:"M d, Y" }}</td>
+                    <td>
+                      {% if res.verification_status == "APPROVED" %}
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 badge-status">Verified</span>
+                      {% elif res.verification_status == "REJECTED" %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 badge-status">Rejected</span>
+                      {% else %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 badge-status">Pending</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center p-4">
+            <p class="text-muted mb-3">You haven't uploaded anything yet.</p>
+            <a href="{% url 'resources:upload_resource' %}" class="btn btn-primary btn-sm"><i class="bi bi-upload me-1"></i>Upload Resource</a>
+          </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 </div>
@@ -134,19 +130,25 @@
         {
           label: 'Views',
           data: viewsData,
-          borderWidth: 1
+          backgroundColor: 'rgba(99,102,241,0.5)',
+          borderRadius: 4
         },
         {
           label: 'Downloads',
           data: downloadsData,
-          borderWidth: 1
+          backgroundColor: 'rgba(6,182,212,0.5)',
+          borderRadius: 4
         }
       ]
     },
     options: {
       responsive: true,
       scales: {
-        y: { beginAtZero: true }
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+        x: { grid: { display: false } }
+      },
+      plugins: {
+        legend: { position: 'bottom' }
       }
     }
   });

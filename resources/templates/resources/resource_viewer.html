@@ -1,112 +1,299 @@
 {% extends "base.html" %}
-{% load static %}
+
+{% block title %}View: {{ resource.title }} — KnowledgeX{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="animate-in h-100 d-flex flex-column" style="min-height: 85vh;">
+  <!-- Header -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-      <h3 class="mb-0">{{ resource.title }}</h3>
-      <small class="text-muted">
-        {% if resource.subject %}{{ resource.subject }}{% else %}No subject{% endif %}
-        • Uploaded by
-        <a href="{% url 'public_profile' resource.owner.id %}">
-          {{ resource.owner.username }}
-        </a>
-      </small>
-    </div>
-
+    <h4 class="mb-0 text-truncate" style="color:var(--text-main);" title="{{ resource.title }}">
+      <i class="bi bi-eye me-2"></i>{{ resource.title }}
+    </h4>
     <div class="d-flex gap-2">
-      <a href="{% url 'resource_detail' resource.pk %}" class="btn btn-outline-secondary btn-sm">
-        ← Back to details
+      <button class="btn btn-outline-primary btn-sm d-md-none" type="button"
+              onclick="document.getElementById('aiSidebar').classList.toggle('ai-hidden')">
+        <i class="bi bi-robot me-1"></i>AI Assistant
+      </button>
+      <a href="{% url 'resources:resource_download' resource.pk %}" class="btn btn-primary btn-sm">
+        <i class="bi bi-download me-1"></i>Download
       </a>
-      <a href="{% url 'resource_download' resource.pk %}" class="btn btn-primary btn-sm">
-        Download
+      <a href="{% url 'resources:resource_detail' resource.pk %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back
       </a>
     </div>
   </div>
 
-  <div class="card shadow-sm border-0">
-    <div class="card-body">
-
-      {# ---------- IMAGE ---------- #}
-      {% if preview_type == "image" %}
-        <div class="text-center">
-          <img src="{{ preview_data }}" alt="{{ resource.title }}"
-               class="img-fluid rounded">
-        </div>
-
-      {# ---------- PDF ---------- #}
-      {% elif preview_type == "pdf" %}
-        <div class="ratio ratio-16x9">
-          <iframe src="{{ preview_data }}" style="border:0;" allowfullscreen></iframe>
-        </div>
-        <p class="small text-muted mt-2 mb-0">
-          If the PDF is not visible, try downloading and opening it locally.
-        </p>
-
-      {# ---------- DOCX ---------- #}
-      {% elif preview_type == "docx" %}
-        <h5 class="mb-3">Document preview</h5>
-        {% if preview_data %}
-          <pre class="small bg-light p-3 rounded" style="max-height: 420px; overflow:auto;">
-{% for line in preview_data %}
-{{ line }}
-{% endfor %}
-          </pre>
+  <!-- Main Grid -->
+  <div class="row flex-grow-1 g-3 m-0 overflow-hidden" style="min-height: 0;">
+    <!-- Document Viewer -->
+    <div class="col-md-8 col-12 d-flex flex-column p-0 pe-md-2" style="height: 100%;">
+      <div class="glass-card flex-grow-1 overflow-hidden d-flex flex-column" style="background:var(--bg-card);border:1px solid var(--border);">
+        {% if error %}
+          <div class="p-5 text-center text-danger flex-grow-1 d-flex flex-column justify-content-center">
+            <i class="bi bi-exclamation-triangle fs-1 mb-3"></i>
+            <h5>Cannot display this file</h5>
+            <p>{{ error }}</p>
+          </div>
         {% else %}
-          <p class="text-muted">
-            Could not generate a text preview. Please download and open in Word / WPS.
-          </p>
-        {% endif %}
-
-      {# ---------- PPT / PPTX ---------- #}
-      {% elif preview_type == "ppt" %}
-        <h5 class="mb-3">Slides overview</h5>
-        {% if preview_data %}
-          <div class="card border-0 shadow-sm">
-            <div class="card-body">
-              <ol class="mb-0">
-                {% for title in preview_data %}
-                  <li class="mb-1">{{ title }}</li>
+          {% if preview_type == "pdf" %}
+            <iframe id="pdfViewer" src="{{ resource.file.url }}" width="100%" height="100%" style="border:none;flex-grow:1;min-height:600px;" title="PDF Viewer"></iframe>
+          {% elif preview_type == "image" %}
+            <div class="p-4 flex-grow-1 d-flex justify-content-center align-items-center bg-dark rounded-bottom">
+              <img src="{{ resource.file.url }}" alt="Preview" class="img-fluid rounded shadow" style="max-height:80vh;object-fit:contain;">
+            </div>
+          {% elif preview_type == "docx" and preview_data %}
+            <div class="p-4 flex-grow-1 overflow-auto bg-white text-dark rounded-bottom" style="font-family:serif;font-size:1.1rem;line-height:1.6;">
+              {% for para in preview_data %}
+                {% if para %}<p>{{ para }}</p>{% endif %}
+              {% endfor %}
+            </div>
+          {% elif preview_type == "ppt" and preview_data %}
+            <div class="p-3 flex-grow-1 overflow-auto rounded-bottom" style="background:var(--bg-card);">
+              <div class="d-flex flex-column gap-3">
+                {% for slide in preview_data %}
+                <div class="rounded-3 overflow-hidden" style="border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                  <!-- Slide header -->
+                  <div class="d-flex align-items-center gap-2 px-3 py-2"
+                       style="background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;">
+                    <span class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                          style="width:26px;height:26px;background:rgba(255,255,255,0.25);font-size:0.7rem;font-weight:700;">
+                      {{ slide.number }}
+                    </span>
+                    <strong style="font-size:0.9rem;line-height:1.3;">{{ slide.title }}</strong>
+                  </div>
+                  <!-- Slide body -->
+                  {% if slide.body %}
+                  <div class="px-3 py-2" style="background:var(--bg-card);">
+                    <ul class="mb-0 ps-3" style="font-size:0.875rem;color:var(--text-secondary);line-height:1.7;">
+                      {% for line in slide.body %}
+                        <li>{{ line }}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                  {% else %}
+                  <div class="px-3 py-2" style="color:var(--text-muted);font-size:0.8rem;font-style:italic;">
+                    No text content on this slide.
+                  </div>
+                  {% endif %}
+                </div>
                 {% endfor %}
-              </ol>
+              </div>
+            </div>
+          {% elif preview_type == "zip" and preview_data %}
+            <div class="p-4 flex-grow-1 overflow-auto rounded-bottom">
+              <h5 class="mb-3"><i class="bi bi-file-zip me-2"></i>Contents of Archive</h5>
+              <ul class="list-group list-group-flush" style="background:transparent;">
+                {% for name in preview_data %}
+                  <li class="list-group-item d-flex align-items-center" style="background:transparent;border-color:var(--border);color:var(--text-main);">
+                    <i class="bi bi-file-earmark me-2 text-muted"></i>{{ name }}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <div class="p-5 text-center text-muted flex-grow-1 d-flex flex-column justify-content-center">
+              <i class="bi bi-file-earmark-x fs-1 mb-3"></i>
+              <h5>No preview available</h5>
+              <p>Please download the file to view its contents.</p>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- AI Sidebar -->
+    <div class="col-md-4 col-12 d-flex flex-column p-0 ps-md-2" id="aiSidebar" style="height: 100%;">
+      <div class="glass-card flex-grow-1 d-flex flex-column" style="background:var(--bg-card);border:1px solid var(--border); overflow: hidden;">
+        
+        <!-- Tabs -->
+        <ul class="nav nav-tabs px-3 pt-3 mb-0" id="aiTabs" role="tablist" style="border-bottom: 1px solid var(--border);">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" style="background:transparent; color:var(--text-main);" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat-pane" type="button" role="tab" aria-controls="chat-pane" aria-selected="true">
+              <i class="bi bi-chat-dots me-2"></i>Chat
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" style="background:transparent; color:var(--text-muted);" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab" aria-controls="summary-pane" aria-selected="false">
+              <i class="bi bi-journal-text me-2"></i>Summary
+            </button>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content flex-grow-1 d-flex flex-column overflow-hidden" id="aiTabContent">
+          
+          <!-- Chat Pane -->
+          <div class="tab-pane fade show active flex-grow-1 d-flex flex-column" id="chat-pane" role="tabpanel" aria-labelledby="chat-tab" style="overflow:hidden;">
+            <!-- Chat History -->
+            <div id="chatHistory" class="flex-grow-1 p-3 overflow-auto d-flex flex-column gap-3" style="font-size: 0.95rem;">
+              <div class="d-flex align-items-start gap-2">
+                <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center text-white" style="width:32px;height:32px;flex-shrink:0;">
+                  <i class="bi bi-robot"></i>
+                </div>
+                <div class="p-3 rounded-3" style="background:var(--bg-card); border:1px solid var(--border); color:var(--text-main);">
+                  Hello! I'm your AI Assistant. I've read this document. What would you like to know?
+                </div>
+              </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="p-3" style="border-top:1px solid var(--border);">
+              <form id="chatForm" class="d-flex gap-2">
+                {% csrf_token %}
+                <input type="text" id="chatInput" class="form-control" placeholder="Ask a question about this document..." autocomplete="off" required style="background:rgba(255,255,255,0.05); color:var(--text-main); border:1px solid var(--border);">
+                <button type="submit" class="btn btn-primary" id="chatSendBtn">
+                  <i class="bi bi-send-fill"></i>
+                </button>
+              </form>
             </div>
           </div>
-          <p class="small text-muted mt-2 mb-0">
-            This is just a text overview of slide titles.
-            For full slides and animations, use the Download button and open the PPT file
-            in PowerPoint / WPS / Google Slides.
-          </p>
-        {% else %}
-          <p class="text-muted">
-            Could not read slide titles. Please download and open the PPT locally.
-          </p>
-        {% endif %}
 
-      {# ---------- ZIP ---------- #}
-      {% elif preview_type == "zip" %}
-        <h5 class="mb-3">Files inside this ZIP</h5>
-        {% if preview_data %}
-          <ul class="list-group">
-            {% for name in preview_data %}
-              <li class="list-group-item small">{{ name }}</li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted">
-            Could not list ZIP contents. Please download and open it with any ZIP tool.
-          </p>
-        {% endif %}
+          <!-- Summary Pane -->
+          <div class="tab-pane fade flex-grow-1 p-4 overflow-auto" id="summary-pane" role="tabpanel" aria-labelledby="summary-tab">
+            <h6 class="text-uppercase fw-bold text-primary mb-3" style="letter-spacing:1px;font-size:0.8rem;">Generative Summary</h6>
+            <div class="p-3 rounded-3 mb-4" style="background:rgba(99,102,241,0.05); border-left:4px solid #6366f1; color:var(--text-main); line-height:1.6;">
+              {{ resource.auto_summary|default:"No summary available."|linebreaksbr }}
+            </div>
+            
+            <h6 class="text-uppercase fw-bold text-success mb-3" style="letter-spacing:1px;font-size:0.8rem;">Important Questions</h6>
+            <div class="p-3 rounded-3" style="background:rgba(16,185,129,0.05); border-left:4px solid #10b981; color:var(--text-main); line-height:1.6;">
+              {{ resource.auto_questions|default:"No questions available."|linebreaksbr }}
+            </div>
+          </div>
 
-      {# ---------- FALLBACK ---------- #}
-      {% else %}
-        <p class="text-muted">
-          Online preview not available for this file type.
-          Please use the Download button to view it.
-        </p>
-      {% endif %}
-
+        </div>
+      </div>
     </div>
   </div>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatHistory = document.getElementById('chatHistory');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+    const pdfViewer = document.getElementById('pdfViewer');
+    
+    let history = []; // Array of {role: 'user'|'model', content: '...'}
+
+    // Handle tab color switches
+    const tabs = document.querySelectorAll('#aiTabs .nav-link');
+    tabs.forEach(tab => {
+      tab.addEventListener('shown.bs.tab', function(e) {
+        tabs.forEach(t => { t.style.color = 'var(--text-muted)'; });
+        e.target.style.color = 'var(--text-main)';
+      });
+    });
+
+    function addMessage(role, text) {
+      const wrapper = document.createElement('div');
+      wrapper.className = `d-flex align-items-start gap-2 ${role === 'user' ? 'flex-row-reverse' : ''}`;
+      
+      const avatar = document.createElement('div');
+      avatar.className = `rounded-circle d-flex align-items-center justify-content-center text-white`;
+      avatar.style = "width:32px;height:32px;flex-shrink:0;";
+      
+      if (role === 'user') {
+        avatar.classList.add('bg-secondary');
+        avatar.innerHTML = '<i class="bi bi-person"></i>';
+      } else {
+        avatar.classList.add('bg-primary', 'bg-gradient');
+        avatar.innerHTML = '<i class="bi bi-robot"></i>';
+      }
+
+      const bubble = document.createElement('div');
+      bubble.className = `p-3 rounded-3 ${role === 'user' ? 'bg-primary text-white' : ''}`;
+      if (role !== 'user') {
+        bubble.style = "background:var(--bg-card); border:1px solid var(--border); color:var(--text-main);";
+      }
+
+      // Format markdown and citations for AI responses
+      if (role === 'model') {
+        let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        formattedText = formattedText.replace(/\n/g, '<br>');
+        
+        // Intelligent Citations: [Page X]
+        formattedText = formattedText.replace(/\[Page (\d+)\]/g, function(match, pageNum) {
+          return `<button class="btn btn-sm btn-outline-info rounded-pill py-0 px-2 ms-1 citation-btn" style="font-size:0.75rem;" data-page="${pageNum}">Pg ${pageNum}</button>`;
+        });
+        
+        bubble.innerHTML = formattedText;
+      } else {
+        bubble.textContent = text;
+      }
+
+      wrapper.appendChild(avatar);
+      wrapper.appendChild(bubble);
+      chatHistory.appendChild(wrapper);
+      
+      // Auto-scroll
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+
+      // Attach citation click events
+      if (role === 'model') {
+        const citations = bubble.querySelectorAll('.citation-btn');
+        citations.forEach(btn => {
+          btn.addEventListener('click', function() {
+            const pageNum = this.getAttribute('data-page');
+            if (pdfViewer && pdfViewer.src.includes('.pdf')) {
+              // Update iframe source to jump to page (works in most native PDF viewers)
+              const baseUrl = pdfViewer.src.split('#')[0];
+              pdfViewer.src = baseUrl + '#page=' + pageNum;
+            }
+          });
+        });
+      }
+    }
+
+    chatForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      // Add user message to UI
+      addMessage('user', message);
+      chatInput.value = '';
+      
+      // Disable input while loading
+      chatInput.disabled = true;
+      chatSendBtn.disabled = true;
+      chatSendBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+
+      try {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const response = await fetch('{% url "resources:resource_chat_api" resource.pk %}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({
+            message: message,
+            history: history
+          })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          addMessage('model', data.answer);
+          // Push to history
+          history.push({role: 'user', content: message});
+          history.push({role: 'model', content: data.answer});
+        } else {
+          addMessage('model', 'Error: ' + (data.error || 'Something went wrong.'));
+        }
+      } catch (err) {
+        addMessage('model', 'Error: Could not reach the server.');
+      } finally {
+        chatInput.disabled = false;
+        chatSendBtn.disabled = false;
+        chatSendBtn.innerHTML = '<i class="bi bi-send-fill"></i>';
+        chatInput.focus();
+      }
+    });
+  });
+</script>
 {% endblock %}

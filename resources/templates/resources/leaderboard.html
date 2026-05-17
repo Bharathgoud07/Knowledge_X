@@ -1,42 +1,128 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block title %}Leaderboard — KnowledgeX{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-  <div class="card shadow-sm border-0">
-    <div class="card-body">
-      <h4 class="mb-3">🏆 Top Contributors</h4>
-      <table class="table table-sm align-middle">
+<div class="animate-in">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1"><i class="bi bi-trophy me-2" style="color:var(--accent);"></i>Top Contributors</h3>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0;">Top 20 knowledge champions this season</p>
+    </div>
+    <a href="{% url 'resources:upload_resource' %}" class="btn btn-primary btn-sm mt-2 mt-md-0">
+      <i class="bi bi-upload me-1"></i>Boost Your Rank
+    </a>
+  </div>
+
+  <!-- Top 3 Podium -->
+  {% if users %}
+  <div class="row g-3 mb-4 justify-content-center">
+    {% for u in users %}
+    {% if forloop.counter <= 3 %}
+    <div class="col-4 col-md-3">
+      <div class="glass-card tilt-card p-3 text-center
+                  {% if u.id == request.user.id %}border border-primary{% endif %}"
+           style="{% if forloop.counter == 1 %}border-top:4px solid #f59e0b;{% elif forloop.counter == 2 %}border-top:4px solid #94a3b8;{% else %}border-top:4px solid #cd7f32;{% endif %}">
+
+        <!-- Medal -->
+        <div style="font-size:{% if forloop.counter == 1 %}2.2rem{% else %}1.6rem{% endif %}; margin-bottom:0.5rem;">
+          {% if forloop.counter == 1 %}🥇
+          {% elif forloop.counter == 2 %}🥈
+          {% else %}🥉{% endif %}
+        </div>
+
+        <!-- Avatar -->
+        <div class="d-flex justify-content-center mb-2">
+          <img src="{% if u.profile.picture %}{{ u.profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
+               class="rounded-circle" alt="{{ u.username }}"
+               style="width:{% if forloop.counter == 1 %}60px{% else %}48px{% endif %};height:{% if forloop.counter == 1 %}60px{% else %}48px{% endif %};object-fit:cover;border:3px solid {% if forloop.counter == 1 %}#f59e0b{% elif forloop.counter == 2 %}#94a3b8{% else %}#cd7f32{% endif %};"
+               onerror="this.src='{% static 'default.png' %}'">
+        </div>
+
+        <a href="{% url 'accounts:public_profile' u.id %}" class="fw-bold text-decoration-none d-block"
+           style="font-size:{% if forloop.counter == 1 %}0.95rem{% else %}0.85rem{% endif %};color:var(--text-main);">
+          {{ u.username|truncatechars:14 }}
+        </a>
+        <div class="badge-gradient mt-1 d-inline-block" style="font-size:0.75rem;">
+          Score: {{ u.score }}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- Full Leaderboard Table -->
+  <div class="glass-card">
+    <div class="px-4 py-3 border-bottom" style="border-color:var(--border)!important;">
+      <h5 class="mb-0"><i class="bi bi-list-ol me-2"></i>Full Rankings</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
         <thead>
           <tr>
-            <th>#</th>
+            <th style="width:50px;padding-left:1rem;">#</th>
             <th>User</th>
-            <th>Uploads</th>
-            <th>Downloads</th>
-            <th>Views</th>
-            <th>Comments</th>
-            <th>Score</th>
+            <th class="text-center">Uploads</th>
+            <th class="text-center">Downloads</th>
+            <th class="text-center">Views</th>
+            <th class="text-center">Comments</th>
+            <th class="text-center">Score</th>
           </tr>
         </thead>
         <tbody>
           {% for u in users %}
-          <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>
-              <a href="{% url 'public_profile' u.id %}">
-                {{ u.username }}
-              </a>
+          <tr {% if u.id == request.user.id %}style="background:rgba(99,102,241,0.08);"{% endif %}>
+            <td style="padding-left:1rem;font-weight:700;">
+              {% if forloop.counter == 1 %}<span style="font-size:1.2rem;">🥇</span>
+              {% elif forloop.counter == 2 %}<span style="font-size:1.2rem;">🥈</span>
+              {% elif forloop.counter == 3 %}<span style="font-size:1.2rem;">🥉</span>
+              {% else %}<span style="color:var(--text-muted);">{{ forloop.counter }}</span>{% endif %}
             </td>
-            <td>{{ u.uploads_count }}</td>
-            <td>{{ u.total_downloads|default:0 }}</td>
-            <td>{{ u.total_views|default:0 }}</td>
-            <td>{{ u.comments_made }}</td>
-            <td>{{ u.score }}</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <img src="{% if u.profile.picture %}{{ u.profile.picture.url }}{% else %}{% static 'default.png' %}{% endif %}"
+                     class="rounded-circle" alt="{{ u.username }}"
+                     style="width:32px;height:32px;object-fit:cover;border:2px solid var(--border);"
+                     onerror="this.src='{% static 'default.png' %}'">
+                <div>
+                  <a href="{% url 'accounts:public_profile' u.id %}" class="fw-semibold text-decoration-none" style="color:var(--text-main);">
+                    {{ u.username }}
+                    {% if u.id == request.user.id %}<span class="badge ms-1" style="background:var(--primary);color:#fff;font-size:0.6rem;border-radius:999px;padding:2px 6px;">You</span>{% endif %}
+                  </a>
+                  {% if u.profile.college %}<div style="font-size:0.7rem;color:var(--text-muted);">{{ u.profile.college|truncatechars:25 }}</div>{% endif %}
+                </div>
+              </div>
+            </td>
+            <td class="text-center" style="font-size:0.875rem;">{{ u.uploads_count }}</td>
+            <td class="text-center" style="font-size:0.875rem;">{{ u.total_downloads|default:0 }}</td>
+            <td class="text-center" style="font-size:0.875rem;">{{ u.total_views|default:0 }}</td>
+            <td class="text-center" style="font-size:0.875rem;">{{ u.comments_made }}</td>
+            <td class="text-center">
+              <span class="badge-gradient" style="font-size:0.8rem;">{{ u.score }}</span>
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="7" class="text-center">No data yet.</td></tr>
+          <tr><td colspan="7" class="text-center py-4" style="color:var(--text-muted);">No contributors yet. Be the first!</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    <!-- Score legend -->
+    <div class="px-4 py-3 border-top d-flex flex-wrap gap-3" style="border-color:var(--border)!important;font-size:0.75rem;color:var(--text-muted);">
+      <span><strong>Score formula:</strong></span>
+      <span>📤 Uploads × 3</span>
+      <span>+</span>
+      <span>⬇ Total Downloads</span>
+      <span>+</span>
+      <span>💬 Comments</span>
+    </div>
   </div>
+  {% endif %}
+
 </div>
 {% endblock %}

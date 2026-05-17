@@ -1,52 +1,101 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block content %}
-<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh;">
-  <div class="card shadow-lg border-0" style="max-width: 420px; width: 100%; border-radius: 18px;">
-    <div class="card-body p-4">
+{% block title %}Login — KnowledgeX{% endblock %}
 
-      <div class="text-center mb-3">
-        <img src="{% static 'logo.png' %}" alt="Logo" style="height:40px;" onerror="this.style.display='none'">
-        <h3 class="mb-0 mt-2">Welcome back 👋</h3>
-        <p class="text-muted small mb-0">Login to continue using Knowledgex</p>
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card glass-card animate-in">
+
+    <!-- Logo + Header -->
+    <div class="auth-header mb-4">
+      <div style="font-size:2.8rem;margin-bottom:0.5rem;line-height:1;">
+        <i class="bi bi-lightning-charge-fill" style="background:linear-gradient(135deg,#818cf8,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;"></i>
+      </div>
+      <h3 style="margin-bottom:0.25rem;">Welcome back</h3>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0;">Sign in to KnowledgeX to continue</p>
+    </div>
+
+    <form method="post" id="loginForm">
+      {% csrf_token %}
+
+      <!-- Identifier field -->
+      <div class="form-group">
+        <label class="form-label" for="id_identifier">
+          <i class="bi bi-person me-1"></i>Email or Username
+        </label>
+        {{ form.identifier }}
+        {% if form.identifier.errors %}
+          <div class="form-error">{{ form.identifier.errors.as_text }}</div>
+        {% endif %}
       </div>
 
-      {% if messages %}
-        <div class="mb-2">
-          {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} py-2 mb-1 small">
-              {{ message }}
-            </div>
-          {% endfor %}
+      <!-- Password field -->
+      <div class="form-group">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label mb-0" for="id_password">
+            <i class="bi bi-lock me-1"></i>Password
+          </label>
+          <a href="{% url 'accounts:password_reset' %}" style="font-size:0.8rem;color:var(--primary);">Forgot password?</a>
+        </div>
+        <div class="input-group">
+          {{ form.password }}
+          <button class="btn btn-outline-secondary" type="button" id="togglePwd"
+                  onclick="togglePassword()" title="Show/hide password">
+            <i class="bi bi-eye" id="togglePwdIcon"></i>
+          </button>
+        </div>
+        {% if form.password.errors %}
+          <div class="form-error">{{ form.password.errors.as_text }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Non-field errors -->
+      {% if form.non_field_errors %}
+        <div class="alert py-2 mb-3 small" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);color:#ef4444;">
+          {% for err in form.non_field_errors %}{{ err }}{% endfor %}
         </div>
       {% endif %}
 
-      <form method="post" class="login-form">
-        {% csrf_token %}
-        <div class="mb-3">
-          <label class="form-label">Email or Username</label>
-          {{ form.identifier }}
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Password</label>
-          {{ form.password }}
-        </div>
-        <button type="submit" class="btn btn-primary w-100">Login</button>
-      </form>
+      <button type="submit" class="btn-primary-custom w-full mt-1">
+        <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+      </button>
+    </form>
 
-      <div class="d-flex justify-content-between align-items-center mt-3 small">
-        <span class="text-muted">
-          New here?
-          <a href="{% url 'register' %}">Create account</a>
+    <!-- Footer links -->
+    <div class="auth-footer">
+      <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+        <span style="color:var(--text-muted);">
+          New here? <a href="{% url 'accounts:register' %}" style="font-weight:600;">Create account</a>
         </span>
-
-        <span class="text-muted">
-          Forgot password? Contact admin
-        </span>
+        <a href="{% url 'accounts:login_with_email_request' %}" style="color:var(--text-muted);">
+          <i class="bi bi-envelope me-1"></i>OTP Login
+        </a>
       </div>
-
     </div>
   </div>
 </div>
+
+<script>
+function togglePassword() {
+  const input = document.getElementById('id_password');
+  const icon = document.getElementById('togglePwdIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.className = 'bi bi-eye-slash';
+  } else {
+    input.type = 'password';
+    icon.className = 'bi bi-eye';
+  }
+}
+// Add form-control class to identifier field if missing
+document.addEventListener('DOMContentLoaded', function() {
+  const id = document.getElementById('id_identifier');
+  const pw = document.getElementById('id_password');
+  if (id && !id.classList.contains('form-control')) id.classList.add('form-control');
+  if (pw && !pw.classList.contains('form-control')) pw.classList.add('form-control');
+  // Remove border-radius from password input (it's in a group)
+  if (pw) pw.style.borderRadius = 'var(--radius-sm) 0 0 var(--radius-sm)';
+});
+</script>
 {% endblock %}

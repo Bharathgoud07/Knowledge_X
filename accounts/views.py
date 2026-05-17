@@ -44,7 +44,7 @@ def send_verification_email(request, user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     verify_url = request.build_absolute_uri(
-        reverse("verify_email", kwargs={"uidb64": uid, "token": token})
+        reverse("accounts:verify_email", kwargs={"uidb64": uid, "token": token})
     )
 
     subject = "Verify your email for Knowledgex"
@@ -86,7 +86,7 @@ def verify_email(request, uidb64, token):
     else:
         messages.error(request, "Invalid or expired verification link.")
 
-    return redirect("login")
+    return redirect("accounts:login")
 
 
 # ----------------------------------------------------
@@ -130,7 +130,7 @@ def register_user(request):
                 request,
                 "Account created successfully! Please check your email for a verification link. You can still log in now.",
             )
-            return redirect("login")
+            return redirect("accounts:login")
     else:
         form = RegisterForm()
 
@@ -138,16 +138,44 @@ def register_user(request):
 
 
 # ----------------------------------------------------
-# LOGIN (email OR username + password)
+# LOGIN (email OR username + password) + brute-force throttling
 # ----------------------------------------------------
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_COOLDOWN_SECONDS = 60  # 60 seconds
+
+
 def login_user(request):
     """
     Login using either:
     - email + password  OR
     - username + password
 
-    The form field is a single "identifier" (email or username).
+    Includes session-based brute-force throttling:
+    max 5 failed attempts per 15 minutes.
     """
+    import time
+
+    # Check throttle
+    attempts = request.session.get("login_attempts", 0)
+    last_attempt_time = request.session.get("login_last_attempt", 0)
+
+    if attempts >= MAX_LOGIN_ATTEMPTS:
+        elapsed = time.time() - last_attempt_time
+        remaining = int(LOGIN_COOLDOWN_SECONDS - elapsed)
+        if remaining > 0:
+            minutes = remaining // 60
+            seconds = remaining % 60
+            messages.error(
+                request,
+                f"Too many failed login attempts. Please try again in {minutes}m {seconds}s.",
+            )
+            form = EmailLoginForm()
+            return render(request, "accounts/login.html", {"form": form})
+        else:
+            # Cooldown expired, reset
+            request.session["login_attempts"] = 0
+            attempts = 0
+
     if request.method == "POST":
         form = EmailLoginForm(request.POST)
         if form.is_valid():
@@ -165,6 +193,8 @@ def login_user(request):
                 user_obj = User.objects.filter(username__iexact=identifier).first()
 
             if user_obj is None:
+                request.session["login_attempts"] = attempts + 1
+                request.session["login_last_attempt"] = time.time()
                 messages.error(request, "Invalid email/username or password.")
             else:
                 user = authenticate(
@@ -173,9 +203,14 @@ def login_user(request):
                     password=password,
                 )
                 if user is None:
+                    request.session["login_attempts"] = attempts + 1
+                    request.session["login_last_attempt"] = time.time()
                     messages.error(request, "Invalid email/username or password.")
                 else:
-                    # Optional: login streak update
+                    # Reset throttle on success
+                    request.session["login_attempts"] = 0
+
+                    # Login streak update
                     profile, _ = Profile.objects.get_or_create(user=user)
                     today = date.today()
                     last = profile.last_login_date
@@ -184,7 +219,6 @@ def login_user(request):
                         profile.login_streak = 1
                     else:
                         if last == today:
-                            # same-day login – keep streak
                             pass
                         elif last == today - timedelta(days=1):
                             profile.login_streak += 1
@@ -199,7 +233,7 @@ def login_user(request):
 
                     login(request, user)
                     messages.success(request, "Logged in successfully.")
-                    return redirect("home")
+                    return redirect("core:home")
     else:
         form = EmailLoginForm()
 
@@ -211,7 +245,7 @@ def login_user(request):
 # ----------------------------------------------------
 def logout_user(request):
     logout(request)
-    return redirect("login")
+    return redirect("accounts:login")
 
 
 # ----------------------------------------------------
@@ -259,7 +293,7 @@ def edit_profile(request):
             u_form.save()
             p_form.save()
             messages.success(request, "Profile updated successfully!")
-            return redirect("my_profile")
+            return redirect("accounts:my_profile")
     else:
         u_form = UserUpdateForm(instance=user)
         p_form = ProfileUpdateForm(instance=profile)
@@ -286,7 +320,7 @@ def change_password(request):
             user = form.save()
             update_session_auth_hash(request, user)
             messages.success(request, "Your password was successfully updated!")
-            return redirect("my_profile")
+            return redirect("accounts:my_profile")
         else:
             messages.error(request, "Please correct the error below.")
     else:
@@ -381,12 +415,12 @@ def login_with_email_request(request):
 
             if not user:
                 messages.error(request, "No account found with that email.")
-                return redirect("login_with_email_request")
+                return redirect("accounts:login_with_email_request")
 
             profile, _ = Profile.objects.get_or_create(user=user)
             if not profile.email_verified:
                 messages.error(request, "Email is not verified. Please verify via registration email.")
-                return redirect("login")
+                return redirect("accounts:login")
 
             import random
             code = f"{random.randint(100000, 999999)}"
@@ -407,7 +441,7 @@ def login_with_email_request(request):
             )
 
             messages.success(request, "OTP sent to your email. Enter it below.")
-            return redirect(f"{reverse('login_with_email_verify')}?email={email}")
+            return redirect(f"{reverse('accounts:login_with_email_verify')}?email={email}")
     else:
         form = OTPLoginRequestForm()
 
@@ -428,7 +462,7 @@ def login_with_email_verify(request):
             user = User.objects.filter(email__iexact=email).first()
             if not user:
                 messages.error(request, "Invalid email or OTP.")
-                return redirect("login_with_email_verify")
+                return redirect("accounts:login_with_email_verify")
 
             otp_obj = (
                 LoginOTP.objects.filter(user=user, code=code, is_used=False)
@@ -438,14 +472,14 @@ def login_with_email_verify(request):
 
             if not otp_obj or not otp_obj.is_valid():
                 messages.error(request, "Invalid or expired OTP.")
-                return redirect("login_with_email_verify")
+                return redirect("accounts:login_with_email_verify")
 
             otp_obj.is_used = True
             otp_obj.save()
 
             login(request, user)
             messages.success(request, "Logged in successfully with OTP!")
-            return redirect("home")
+            return redirect("core:home")
     else:
         form = OTPVerifyForm(initial={"email": initial_email})
 
@@ -463,4 +497,4 @@ def resend_verification(request):
     else:
         send_verification_email(request, request.user)
         messages.success(request, "Verification email sent again.")
-    return redirect("my_profile")
+    return redirect("accounts:my_profile")

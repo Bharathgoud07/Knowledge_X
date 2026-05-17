@@ -1,108 +1,109 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Admin Analytics — KnowledgeX{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-  <h3 class="mb-3">Admin Analytics</h3>
+<div class="animate-in">
+  <div class="d-flex align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Admin Analytics</h3>
+  </div>
 
   <!-- Top summary cards -->
-  <div class="row mb-3">
-    <div class="col-md-3 mb-2">
-      <div class="card shadow-sm text-center p-3">
-        <h6>Total Resources</h6>
-        <h3>{{ total_resources }}</h3>
+  <div class="row g-3 mb-4">
+    <div class="col-md-2 col-sm-6">
+      <div class="stat-card glass-card" style="border-left:4px solid var(--primary);">
+        <div class="stat-value">{{ total_resources }}</div>
+        <div class="stat-label"><i class="bi bi-file-earmark me-1"></i>Resources</div>
       </div>
     </div>
-    <div class="col-md-3 mb-2">
-      <div class="card shadow-sm text-center p-3">
-        <h6>Total Views</h6>
-        <h3>{{ total_views }}</h3>
+    <div class="col-md-2 col-sm-6">
+      <div class="stat-card glass-card" style="border-left:4px solid var(--secondary);">
+        <div class="stat-value">{{ total_views }}</div>
+        <div class="stat-label"><i class="bi bi-eye me-1"></i>Views</div>
       </div>
     </div>
-    <div class="col-md-3 mb-2">
-      <div class="card shadow-sm text-center p-3">
-        <h6>Total Downloads</h6>
-        <h3>{{ total_downloads }}</h3>
+    <div class="col-md-3 col-sm-6">
+      <div class="stat-card glass-card" style="border-left:4px solid var(--success);">
+        <div class="stat-value">{{ total_downloads }}</div>
+        <div class="stat-label"><i class="bi bi-download me-1"></i>Downloads</div>
       </div>
     </div>
-    <div class="col-md-3 mb-2">
-      <div class="card shadow-sm text-center p-3">
-        <h6>Total Visits</h6>
-        <h3>{{ total_visits }}</h3>
+    <div class="col-md-2 col-sm-6">
+      <div class="stat-card glass-card" style="border-left:4px solid var(--accent);">
+        <div class="stat-value">{{ total_visits }}</div>
+        <div class="stat-label"><i class="bi bi-globe me-1"></i>Visits</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="stat-card glass-card" style="border-left:4px solid var(--danger);">
+        <div class="stat-value">{{ total_reports }}</div>
+        <div class="stat-label"><i class="bi bi-flag me-1"></i>Reports</div>
       </div>
     </div>
   </div>
 
-  <div class="row">
+  <div class="row g-4 mb-4">
     <!-- Uploads per day -->
-    <div class="col-md-6 mb-3">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Uploads per day</h5>
-          <canvas id="uploadsChart" height="160"></canvas>
-        </div>
+    <div class="col-md-6">
+      <div class="glass-card p-4 h-100">
+        <h5 class="mb-4">Uploads per day</h5>
+        <canvas id="uploadsChart" height="180"></canvas>
       </div>
     </div>
 
     <!-- Visits per day -->
-    <div class="col-md-6 mb-3">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Visits per day</h5>
-          <canvas id="visitsChart" height="160"></canvas>
-        </div>
+    <div class="col-md-6">
+      <div class="glass-card p-4 h-100">
+        <h5 class="mb-4">Visits per day</h5>
+        <canvas id="visitsChart" height="180"></canvas>
       </div>
     </div>
   </div>
 
-  <div class="row mt-2">
+  <div class="row g-4">
     <!-- Subject downloads chart -->
-    <div class="col-md-6 mb-3">
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Downloads by subject</h5>
-          <canvas id="subjectDownloadsChart" height="160"></canvas>
-        </div>
+    <div class="col-md-6">
+      <div class="glass-card p-4 h-100">
+        <h5 class="mb-4">Downloads by subject</h5>
+        <canvas id="subjectDownloadsChart" height="180"></canvas>
       </div>
     </div>
 
     <!-- Top resources & active users -->
-    <div class="col-md-6 mb-3">
-      <div class="card shadow-sm mb-3">
-        <div class="card-body">
-          <h5 class="card-title">Top 5 resources (by downloads)</h5>
-          <ul class="list-group list-group-flush">
-            {% for r in top_resources %}
-              <li class="list-group-item d-flex justify-content-between">
-                <span>{{ r.title|truncatechars:30 }}</span>
-                <span class="badge text-bg-primary">{{ r.download_count }} downloads</span>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No resources yet.</li>
-            {% endfor %}
-          </ul>
-        </div>
+    <div class="col-md-6 d-flex flex-column gap-4">
+      <div class="glass-card p-4">
+        <h5 class="mb-3">Top 5 resources (by downloads)</h5>
+        <ul class="list-group list-group-flush" style="background:transparent;">
+          {% for r in top_resources %}
+            <li class="list-group-item d-flex justify-content-between align-items-center" style="background:transparent;border-color:var(--border);">
+              <a href="{% url 'resources:resource_detail' r.pk %}" class="fw-semibold text-decoration-none" style="color:var(--text-main);">
+                {{ r.title|truncatechars:35 }}
+              </a>
+              <span class="badge-gradient">{{ r.download_count }} downloads</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-muted" style="background:transparent;border-color:var(--border);">No resources yet.</li>
+          {% endfor %}
+        </ul>
       </div>
 
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <h5 class="card-title">Most active users (by uploads)</h5>
-          <ul class="list-group list-group-flush">
-            {% for u in active_users %}
-              <li class="list-group-item">
-                <strong>{{ u.username }}</strong>
-                <br>
-                <small class="text-muted">
-                  Uploads: {{ u.uploads_count }},
-                  Ratings given: {{ u.ratings_given }},
-                  Comments: {{ u.comments_made }}
-                </small>
-              </li>
-            {% empty %}
-              <li class="list-group-item text-muted">No activity yet.</li>
-            {% endfor %}
-          </ul>
-        </div>
+      <div class="glass-card p-4">
+        <h5 class="mb-3">Most active users (by uploads)</h5>
+        <ul class="list-group list-group-flush" style="background:transparent;">
+          {% for u in active_users %}
+            <li class="list-group-item" style="background:transparent;border-color:var(--border);">
+              <div class="fw-semibold" style="color:var(--text-main);">{{ u.username }}</div>
+              <div class="small text-muted mt-1">
+                Uploads: {{ u.uploads_count }} &nbsp;|&nbsp;
+                Ratings given: {{ u.ratings_given }} &nbsp;|&nbsp;
+                Comments: {{ u.comments_made }}
+              </div>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-muted" style="background:transparent;border-color:var(--border);">No activity yet.</li>
+          {% endfor %}
+        </ul>
       </div>
     </div>
   </div>
@@ -111,68 +112,56 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // Data from Django
-  const uploadsLabels = JSON.parse('{{ uploads_labels_json|escapejs }}');
-  const uploadsCounts = JSON.parse('{{ uploads_counts_json|escapejs }}');
+  document.addEventListener('DOMContentLoaded', function() {
+    const uploadsLabels = JSON.parse('{{ uploads_labels_json|escapejs }}');
+    const uploadsCounts = JSON.parse('{{ uploads_counts_json|escapejs }}');
+    const visitsLabels = JSON.parse('{{ visits_labels_json|escapejs }}');
+    const visitsCounts = JSON.parse('{{ visits_counts_json|escapejs }}');
+    const subjDownloadLabels = JSON.parse('{{ subject_download_labels_json|escapejs }}');
+    const subjDownloadCounts = JSON.parse('{{ subject_download_counts_json|escapejs }}');
 
-  const visitsLabels = JSON.parse('{{ visits_labels_json|escapejs }}');
-  const visitsCounts = JSON.parse('{{ visits_counts_json|escapejs }}');
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const labelColor = isDark ? '#94a3b8' : '#64748b';
 
-  const subjDownloadLabels = JSON.parse('{{ subject_download_labels_json|escapejs }}');
-  const subjDownloadCounts = JSON.parse('{{ subject_download_counts_json|escapejs }}');
-
-  // Uploads per day chart
-  const uploadsCtx = document.getElementById('uploadsChart').getContext('2d');
-  new Chart(uploadsCtx, {
-    type: 'line',
-    data: {
-      labels: uploadsLabels,
-      datasets: [{
-        label: 'Uploads',
-        data: uploadsCounts,
-        borderWidth: 2
-      }]
-    },
-    options: {
+    const baseOptions = {
       responsive: true,
-      scales: { y: { beginAtZero: true } }
-    }
-  });
+      scales: {
+        y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: labelColor, precision: 0 } },
+        x: { grid: { display: false }, ticks: { color: labelColor, maxRotation: 30 } }
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: labelColor, padding: 16 } } }
+    };
 
-  // Visits per day chart
-  const visitsCtx = document.getElementById('visitsChart').getContext('2d');
-  new Chart(visitsCtx, {
-    type: 'line',
-    data: {
-      labels: visitsLabels,
-      datasets: [{
-        label: 'Visits',
-        data: visitsCounts,
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: { y: { beginAtZero: true } }
-    }
-  });
+    // Uploads per day chart
+    new Chart(document.getElementById('uploadsChart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: uploadsLabels,
+        datasets: [{ label: 'Uploads', data: uploadsCounts, borderWidth: 2, borderColor: '#6366f1', backgroundColor: 'rgba(99,102,241,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#6366f1' }]
+      },
+      options: baseOptions
+    });
 
-  // Downloads by subject chart
-  const subjCtx = document.getElementById('subjectDownloadsChart').getContext('2d');
-  new Chart(subjCtx, {
-    type: 'bar',
-    data: {
-      labels: subjDownloadLabels,
-      datasets: [{
-        label: 'Downloads',
-        data: subjDownloadCounts,
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: { y: { beginAtZero: true } }
-    }
+    // Visits per day chart
+    new Chart(document.getElementById('visitsChart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: visitsLabels,
+        datasets: [{ label: 'Visits', data: visitsCounts, borderWidth: 2, borderColor: '#06b6d4', backgroundColor: 'rgba(6,182,212,0.1)', tension: 0.4, fill: true, pointBackgroundColor: '#06b6d4' }]
+      },
+      options: baseOptions
+    });
+
+    // Downloads by subject chart
+    new Chart(document.getElementById('subjectDownloadsChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: subjDownloadLabels,
+        datasets: [{ label: 'Downloads', data: subjDownloadCounts, backgroundColor: 'rgba(245,158,11,0.55)', borderColor: 'rgba(245,158,11,0.9)', borderWidth: 1, borderRadius: 6 }]
+      },
+      options: baseOptions
+    });
   });
 </script>
 {% endblock %}

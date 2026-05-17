@@ -25,6 +25,7 @@ from .models import (
 )
 
 from .forms import ResourceForm, CommentForm, RatingForm, ReportForm
+from core import ai_service
 
 # extra optional preview libs
 try:
@@ -43,52 +44,70 @@ except ImportError:
 # -------------------------------------------------------------------
 @login_required
 def resource_list(request):
-    resources = Resource.objects.all().order_by("-created_at")
+    # Optimize N+1 queries by selecting related owner and subject
+    resources = Resource.objects.select_related("owner", "subject").all().order_by("-created_at")
 
     q = request.GET.get("q", "").strip()
-    subject = request.GET.get("subject", "").strip()
-    semester = request.GET.get("semester", "").strip()
-    resource_type = request.GET.get("resource_type", "").strip()
+    # Use getlist for multiple selections
+    subjects = request.GET.getlist("subject")
+    semesters = request.GET.getlist("semester")
+    resource_types = request.GET.getlist("resource_type")
     sort = request.GET.get("sort", "newest")
 
-    # Search
+    # Clean up empty strings from lists if any
+    subjects = [s for s in subjects if s]
+    semesters = [s for s in semesters if s]
+    resource_types = [rt for rt in resource_types if rt]
+
+    # Search (combine tokens)
     if q:
-        resources = resources.filter(
-            Q(title__icontains=q)
-            | Q(description__icontains=q)
-            | Q(subject__name__icontains=q)
-            | Q(owner__username__icontains=q)
-        )
+        tokens = q.split()
+        for token in tokens:
+            resources = resources.filter(
+                Q(title__icontains=token)
+                | Q(description__icontains=token)
+                | Q(subject__name__icontains=token)
+                | Q(subject__abbreviation__icontains=token)   # match "OS", "DBMS", etc.
+                | Q(owner__username__icontains=token)
+            )
 
     # Subject filter
-    if subject:
+    if subjects:
         try:
-            subject_id = int(subject)
-            resources = resources.filter(subject_id=subject_id)
+            subject_ids = [int(s) for s in subjects]
+            resources = resources.filter(subject_id__in=subject_ids)
         except ValueError:
             pass
 
     # Semester filter
-    if semester:
+    if semesters:
         try:
-            sem_value = int(semester)
-            resources = resources.filter(semester=sem_value)
+            sem_values = [int(s) for s in semesters]
+            resources = resources.filter(semester__in=sem_values)
         except ValueError:
             pass
 
     # Resource type filter
-    if resource_type:
-        resources = resources.filter(resource_type=resource_type)
+    if resource_types:
+        resources = resources.filter(resource_type__in=resource_types)
 
     # Sorting
     if sort == "oldest":
         resources = resources.order_by("created_at")
     elif sort == "downloads":
         resources = resources.order_by("-download_count", "-created_at")
+    elif sort == "rating":
+        resources = resources.annotate(
+            avg_rating=Avg("ratings__stars")
+        ).order_by("-avg_rating", "-created_at")
     elif sort == "az":
         resources = resources.order_by("title")
     elif sort == "subject":
         resources = resources.order_by("subject__name", "title")
+    elif sort == "ai_rank":
+        resources = resources.annotate(
+            ai_score=(F("download_count") * 0.5) + (F("view_count") * 0.1)
+        ).order_by("-ai_score")
     else:  # newest
         resources = resources.order_by("-created_at")
 
@@ -96,19 +115,25 @@ def resource_list(request):
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
 
-    top_downloads = Resource.objects.order_by("-download_count").first()
+    top_downloads = Resource.objects.select_related("owner", "subject").order_by("-download_count").first()
+
+    query_params = request.GET.copy()
+    if "page" in query_params:
+        del query_params["page"]
+    query_string = query_params.urlencode()
 
     context = {
         "page_obj": page_obj,
         "q": q,
-        "subject_filter": subject,
-        "semester_filter": semester,
-        "resource_type_filter": resource_type,
+        "subject_filter": subjects,
+        "semester_filter": semesters,
+        "resource_type_filter": resource_types,
         "sort": sort,
         "semester_choices": SEMESTER_CHOICES,
         "resource_type_choices": RESOURCE_TYPE_CHOICES,
         "subjects": Subject.objects.order_by("name"),
         "top_downloads": top_downloads,
+        "query_string": query_string,
     }
     return render(request, "resources/resource_list.html", context)
 
@@ -116,6 +141,8 @@ def resource_list(request):
 # -------------------------------------------------------------------
 # Upload resource
 # -------------------------------------------------------------------
+from core import ai_service
+
 @login_required
 def upload_resource(request):
     if request.method == "POST":
@@ -123,9 +150,92 @@ def upload_resource(request):
         if form.is_valid():
             resource = form.save(commit=False)
             resource.owner = request.user
+
+            # Handle new subject
+            if not resource.subject and form.cleaned_data.get("new_subject_name"):
+                new_sub_name = form.cleaned_data["new_subject_name"].strip()
+                if new_sub_name:
+                    new_sub, created = Subject.objects.get_or_create(name=new_sub_name)
+                    resource.subject = new_sub
+
             resource.save()
-            messages.success(request, "Resource uploaded successfully!")
-            return redirect("resource_list")
+            
+            # Extract text for AI if possible
+            extracted_text = ""
+            ext = (resource.file_ext or "").lower()
+            text_pages_dict = {}
+            
+            if ext == "pdf":
+                try:
+                    import pypdf
+                    with open(resource.file.path, 'rb') as f:
+                        reader = pypdf.PdfReader(f)
+                        text_pages = []
+                        # Extract from first 30 pages max to save time/memory but provide decent context
+                        for i, page in enumerate(reader.pages[:30]):
+                            page_text = page.extract_text() or ""
+                            text_pages.append(page_text)
+                            text_pages_dict[str(i + 1)] = page_text
+                        extracted_text = "\n".join(text_pages)
+                except Exception:
+                    pass
+            elif ext == "docx" and docx:
+                try:
+                    document = docx.Document(resource.file.path)
+                    extracted_text = "\n".join([p.text for p in document.paragraphs if p.text.strip()][:50])
+                    if extracted_text:
+                        text_pages_dict = {"1": extracted_text}
+                except Exception:
+                    pass
+            elif ext in ["ppt", "pptx"] and pptx:
+                try:
+                    prs = pptx.Presentation(resource.file.path)
+                    all_text_parts = []
+                    for i, slide in enumerate(prs.slides, start=1):
+                        slide_lines = []
+                        # Title first
+                        if slide.shapes.title and slide.shapes.title.text.strip():
+                            slide_lines.append(slide.shapes.title.text.strip())
+                        # All other text shapes (body, bullet points, text boxes)
+                        for shape in slide.shapes:
+                            if shape == slide.shapes.title:
+                                continue
+                            if shape.has_text_frame:
+                                for para in shape.text_frame.paragraphs:
+                                    line = para.text.strip()
+                                    if line:
+                                        slide_lines.append(line)
+                        slide_text = "\n".join(slide_lines)
+                        if slide_text.strip():
+                            all_text_parts.append(slide_text)
+                            # Each slide = one "page" for AI chat
+                            text_pages_dict[str(i)] = slide_text
+                    extracted_text = "\n\n".join(all_text_parts)
+                except Exception:
+                    pass
+            elif ext == "txt":
+                try:
+                    with open(resource.file.path, 'r', encoding='utf-8') as f:
+                        extracted_text = f.read(2000)
+                    if extracted_text:
+                        text_pages_dict = {"1": extracted_text}
+                except Exception:
+                    pass
+                    
+            if not extracted_text.strip():
+                extracted_text = resource.title + "\n" + resource.description
+                text_pages_dict = {"1": extracted_text}
+            
+            # Save the page mapping for AI Chat
+            resource.extracted_text_pages = text_pages_dict
+
+            # Generate AI fields
+            resource.auto_summary = ai_service.generate_summary(extracted_text)
+            resource.auto_questions = ai_service.generate_important_questions(extracted_text)
+            resource.save()
+
+            messages.success(request, "Resource uploaded successfully! AI has processed it.")
+            return redirect("resources:resource_list")
         else:
             messages.error(request, "Please correct the errors in the form.")
     else:
@@ -139,7 +249,7 @@ def upload_resource(request):
 # -------------------------------------------------------------------
 @login_required
 def resource_detail(request, pk):
-    resource = get_object_or_404(Resource, pk=pk)
+    resource = get_object_or_404(Resource.objects.select_related("owner", "subject"), pk=pk)
 
     # Count views only on GET
     if request.method == "GET":
@@ -199,7 +309,7 @@ def resource_detail(request, pk):
                     )
 
                 messages.success(request, "Comment added!")
-                return redirect("resource_detail", pk=resource.pk)
+                return redirect("resources:resource_detail", pk=resource.pk)
 
         # ----- Rating submit -----
         elif "rating_submit" in request.POST:
@@ -225,7 +335,7 @@ def resource_detail(request, pk):
                     )
 
                 messages.success(request, "Your rating has been saved!")
-                return redirect("resource_detail", pk=resource.pk)
+                return redirect("resources:resource_detail", pk=resource.pk)
     else:
         comment_form = CommentForm()
         try:
@@ -236,6 +346,9 @@ def resource_detail(request, pk):
 
     is_favorite = resource.is_favorited_by(request.user)
 
+    # AI recommendations
+    recommendations = ai_service.get_recommendations(resource)
+
     context = {
         "resource": resource,
         "resource_type_choices": RESOURCE_TYPE_CHOICES,
@@ -243,8 +356,114 @@ def resource_detail(request, pk):
         "rating_form": rating_form,
         "comments": comments,
         "is_favorite": is_favorite,
+        "recommendations": recommendations,
     }
     return render(request, "resources/resource_detail.html", context)
+
+
+# -------------------------------------------------------------------
+# AI Chat API
+# -------------------------------------------------------------------
+@login_required
+def resource_chat_api(request, pk):
+    """
+    API endpoint to handle Chat with PDF messages.
+    """
+    import json
+    from django.http import JsonResponse
+    from core import ai_service
+    from django.views.decorators.csrf import csrf_exempt
+    
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST requests allowed."}, status=405)
+        
+    resource = get_object_or_404(Resource, pk=pk)
+    
+    try:
+        data = json.loads(request.body)
+        chat_history = data.get("history", [])
+        new_question = data.get("message", "").strip()
+        
+        if not new_question:
+            return JsonResponse({"error": "Empty message"}, status=400)
+
+        # ---- Use stored extraction OR live-extract if missing/stale ----
+        pages_dict = resource.extracted_text_pages or {}
+
+        # Check if stored data is stale (only 1 page of < 200 chars = old title-only extraction)
+        is_stale = (
+            not pages_dict
+            or (len(pages_dict) == 1 and len(list(pages_dict.values())[0]) < 200)
+        )
+
+        if is_stale:
+            ext = (resource.file_ext or "").lower()
+
+            if ext in ["ppt", "pptx"] and pptx:
+                try:
+                    prs = pptx.Presentation(resource.file.path)
+                    fresh_pages = {}
+                    for i, slide in enumerate(prs.slides, start=1):
+                        slide_lines = []
+                        if slide.shapes.title and slide.shapes.title.text.strip():
+                            slide_lines.append(slide.shapes.title.text.strip())
+                        for shape in slide.shapes:
+                            if shape == slide.shapes.title:
+                                continue
+                            if shape.has_text_frame:
+                                for para in shape.text_frame.paragraphs:
+                                    line = para.text.strip()
+                                    if line:
+                                        slide_lines.append(line)
+                        slide_text = "\n".join(slide_lines)
+                        if slide_text.strip():
+                            fresh_pages[str(i)] = slide_text
+                    if fresh_pages:
+                        pages_dict = fresh_pages
+                        # Save back so next chat is instant
+                        Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
+                except Exception:
+                    pass
+
+            elif ext == "pdf":
+                try:
+                    import pypdf
+                    with open(resource.file.path, 'rb') as f:
+                        reader = pypdf.PdfReader(f)
+                        fresh_pages = {}
+                        for i, page in enumerate(reader.pages[:30], start=1):
+                            page_text = page.extract_text() or ""
+                            if page_text.strip():
+                                fresh_pages[str(i)] = page_text
+                        if fresh_pages:
+                            pages_dict = fresh_pages
+                            Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
+                except Exception:
+                    pass
+
+            elif ext == "docx" and docx:
+                try:
+                    document = docx.Document(resource.file.path)
+                    full_text = "\n".join(
+                        [p.text.strip() for p in document.paragraphs if p.text.strip()]
+                    )
+                    if full_text:
+                        fresh_pages = {"1": full_text}
+                        pages_dict = fresh_pages
+                        Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
+                except Exception:
+                    pass
+
+        # Call AI Service
+        answer = ai_service.chat_with_document(
+            extracted_pages_dict=pages_dict,
+            chat_history=chat_history,
+            new_question=new_question
+        )
+
+        return JsonResponse({"answer": answer})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 # -------------------------------------------------------------------
@@ -307,16 +526,34 @@ def resource_viewer(request, pk):
             else:
                 try:
                     prs = pptx.Presentation(resource.file.path)
-                    titles = []
+                    slides_data = []
                     for i, slide in enumerate(prs.slides, start=1):
-                        text = ""
-                        if slide.shapes.title and slide.shapes.title.text:
-                            text = slide.shapes.title.text.strip()
+                        # Get slide title
+                        title_text = ""
+                        if slide.shapes.title and slide.shapes.title.text.strip():
+                            title_text = slide.shapes.title.text.strip()
                         else:
-                            text = f"Slide {i}"
-                        titles.append(text)
-                    preview_data = titles
-                except Exception:
+                            title_text = f"Slide {i}"
+
+                        # Get all body text (bullet points, text boxes, etc.)
+                        body_lines = []
+                        for shape in slide.shapes:
+                            # Skip the title shape to avoid duplication
+                            if shape == slide.shapes.title:
+                                continue
+                            if shape.has_text_frame:
+                                for para in shape.text_frame.paragraphs:
+                                    line = para.text.strip()
+                                    if line:
+                                        body_lines.append(line)
+
+                        slides_data.append({
+                            "number": i,
+                            "title": title_text,
+                            "body": body_lines,
+                        })
+                    preview_data = slides_data
+                except Exception as e:
                     preview_data = None
 
         # ---------- 5) ZIP ----------
@@ -366,13 +603,13 @@ def toggle_favorite(request, pk):
     else:
         favorite.delete()
         messages.info(request, "Removed from your favorites.")
-    return redirect("resource_detail", pk=pk)
+    return redirect("resources:resource_detail", pk=pk)
 
 
 @login_required
 def my_favorites(request):
     favorites = Favorite.objects.filter(user=request.user).select_related(
-        "resource", "resource__subject"
+        "resource", "resource__subject", "resource__owner"
     )
     resources = [f.resource for f in favorites]
     return render(
@@ -449,7 +686,7 @@ def report_resource(request, pk):
             messages.success(request, "Thank you. Your report has been submitted.")
         else:
             messages.error(request, "Could not submit report, please check the form.")
-    return redirect("resource_detail", pk=pk)
+    return redirect("resources:resource_detail", pk=pk)
 
 
 # -------------------------------------------------------------------
@@ -468,7 +705,7 @@ def my_activity(request):
     """
     user = request.user
 
-    uploads_qs = Resource.objects.filter(owner=user).select_related("subject")
+    uploads_qs = Resource.objects.filter(owner=user).select_related("owner", "subject")
 
     uploads_count = uploads_qs.count()
     favorites_count = Favorite.objects.filter(user=user).count()
@@ -496,6 +733,7 @@ def my_activity(request):
         "views_json": json.dumps(views_data),
         "downloads_json": json.dumps(downloads_data),
         "my_uploads": my_uploads,
+        "resource_type_choices": RESOURCE_TYPE_CHOICES,
     }
     return render(request, "resources/my_activity.html", context)
 
@@ -607,8 +845,8 @@ def notification_mark_read(request, pk):
     notif.save()
 
     if notif.resource_id:
-        return redirect("resource_detail", pk=notif.resource_id)
-    return redirect("notifications_list")
+        return redirect("resources:resource_detail", pk=notif.resource_id)
+    return redirect("resources:notifications_list")
 
 
 # -------------------------------------------------------------------
@@ -624,7 +862,7 @@ def verify_resource(request, pk):
 
         if action not in ("APPROVED", "REJECTED"):
             messages.error(request, "Invalid action.")
-            return redirect("resource_detail", pk=pk)
+            return redirect("resources:resource_detail", pk=pk)
 
         resource.verification_status = action
         resource.verified_by = request.user
@@ -645,9 +883,9 @@ def verify_resource(request, pk):
         )
 
         messages.success(request, "Verification status updated.")
-        return redirect("resource_detail", pk=pk)
+        return redirect("resources:resource_detail", pk=pk)
 
-    return redirect("resource_detail", pk=pk)
+    return redirect("resources:resource_detail", pk=pk)
 
 
 # -------------------------------------------------------------------
@@ -660,7 +898,7 @@ def leaderboard(request):
     Score = uploads*3 + total_downloads + comments_made
     """
     users = (
-        User.objects.annotate(
+        User.objects.select_related("profile").annotate(
             uploads_count=Count("resources", distinct=True),
             total_downloads=Sum("resources__download_count"),
             total_views=Sum("resources__view_count"),
@@ -678,3 +916,35 @@ def leaderboard(request):
     )
 
     return render(request, "resources/leaderboard.html", {"users": users})
+
+
+# -------------------------------------------------------------------
+# Delete resource (owner or staff only)
+# -------------------------------------------------------------------
+@login_required
+def delete_resource(request, pk):
+    resource = get_object_or_404(Resource, pk=pk)
+
+    # Only the owner or staff can delete
+    if resource.owner != request.user and not request.user.is_staff:
+        messages.error(request, "You do not have permission to delete this resource.")
+        return redirect("resources:resource_detail", pk=pk)
+
+    if request.method == "POST":
+        title = resource.title
+        resource.file.delete(save=False)  # Remove file from disk
+        resource.delete()
+        messages.success(request, f"Resource '{title}' has been deleted.")
+        return redirect("resources:resource_list")
+
+    return render(request, "resources/resource_confirm_delete.html", {"resource": resource})
+
+
+# -------------------------------------------------------------------
+# Mark all notifications as read
+# -------------------------------------------------------------------
+@login_required
+def mark_all_notifications_read(request):
+    request.user.notifications.filter(is_read=False).update(is_read=True)
+    messages.success(request, "All notifications marked as read.")
+    return redirect("resources:notifications_list")

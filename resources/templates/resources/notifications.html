@@ -1,32 +1,120 @@
 {% extends "base.html" %}
+{% load static %}
+
+{% block title %}Notifications — KnowledgeX{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-  <h3>Notifications</h3>
-  <hr>
+<div class="animate-in">
+
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1"><i class="bi bi-bell me-2"></i>Notifications</h3>
+      <p style="color:var(--text-muted);font-size:0.875rem;margin:0;">
+        {% with unread=notifications|dictsortreversed:"is_read" %}
+          Stay up-to-date with activity on your resources
+        {% endwith %}
+      </p>
+    </div>
+    {% if notifications %}
+    <form method="post" action="{% url 'resources:mark_all_notifications_read' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-check2-all me-1"></i>Mark all read
+      </button>
+    </form>
+    {% endif %}
+  </div>
 
   {% if notifications %}
-    <ul class="list-group">
-      {% for n in notifications %}
-        <li class="list-group-item d-flex justify-content-between align-items-center
-                   {% if not n.is_read %}fw-bold{% endif %}">
-          <div>
+  <div class="d-flex flex-column gap-2">
+    {% for n in notifications %}
+    <div class="glass-card {% if not n.is_read %}notif-unread{% endif %}"
+         style="transition:all 0.2s;border-left:3px solid {% if not n.is_read %}var(--primary){% else %}var(--border){% endif %};">
+      <div class="d-flex align-items-start gap-3 p-3">
+
+        <!-- Icon -->
+        <div class="notif-icon flex-shrink-0 d-flex align-items-center justify-content-center rounded-circle"
+             style="width:40px;height:40px;font-size:1.1rem;
+             {% if n.notif_type == 'COMMENT' %}background:rgba(99,102,241,0.12);color:#6366f1;
+             {% elif n.notif_type == 'REPLY' %}background:rgba(6,182,212,0.12);color:#06b6d4;
+             {% elif n.notif_type == 'RATING' %}background:rgba(245,158,11,0.12);color:#f59e0b;
+             {% elif n.notif_type == 'REPORT' %}background:rgba(239,68,68,0.12);color:#ef4444;
+             {% elif n.notif_type == 'REPORT_STATUS' %}background:rgba(239,68,68,0.12);color:#ef4444;
+             {% elif n.notif_type == 'VERIFICATION' %}background:rgba(16,185,129,0.12);color:#10b981;
+             {% else %}background:rgba(100,116,139,0.12);color:#64748b;
+             {% endif %}">
+          {% if n.notif_type == 'COMMENT' %}<i class="bi bi-chat-dots"></i>
+          {% elif n.notif_type == 'REPLY' %}<i class="bi bi-reply"></i>
+          {% elif n.notif_type == 'RATING' %}<i class="bi bi-star-fill"></i>
+          {% elif n.notif_type == 'REPORT' %}<i class="bi bi-flag-fill"></i>
+          {% elif n.notif_type == 'REPORT_STATUS' %}<i class="bi bi-shield-check"></i>
+          {% elif n.notif_type == 'VERIFICATION' %}<i class="bi bi-patch-check"></i>
+          {% else %}<i class="bi bi-bell"></i>
+          {% endif %}
+        </div>
+
+        <!-- Content -->
+        <div class="flex-grow-1 min-w-0">
+          <p class="mb-1" style="font-size:0.9rem;{% if not n.is_read %}font-weight:600;color:var(--text-main);{% else %}color:var(--text-secondary);{% endif %}">
             {{ n.message }}
-            <br>
-            <small class="text-muted">{{ n.created_at|date:"M d, Y H:i" }}</small>
-          </div>
-          <div>
+          </p>
+          <div class="d-flex flex-wrap align-items-center gap-2" style="font-size:0.75rem;color:var(--text-muted);">
+            <span><i class="bi bi-clock me-1"></i>{{ n.created_at|timesince }} ago</span>
+            {% if n.resource %}
+              <span>·</span>
+              <span>📄 {{ n.resource.title|truncatechars:30 }}</span>
+            {% endif %}
             {% if not n.is_read %}
-              <a href="{% url 'notification_mark_read' n.pk %}" class="btn btn-sm btn-outline-primary">
-                Mark as read
-              </a>
+              <span class="badge" style="background:var(--primary);color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:999px;">New</span>
             {% endif %}
           </div>
-        </li>
-      {% endfor %}
-    </ul>
+        </div>
+
+        <!-- Action -->
+        <div class="flex-shrink-0 d-flex gap-1">
+          {% if not n.is_read %}
+          <a href="{% url 'resources:notification_mark_read' n.id %}"
+             class="btn btn-sm btn-outline-primary"
+             title="Mark as read & open">
+            <i class="bi bi-check2"></i>
+          </a>
+          {% elif n.resource %}
+          <a href="{% url 'resources:resource_detail' n.resource.id %}"
+             class="btn btn-sm btn-outline-secondary"
+             title="View resource">
+            <i class="bi bi-arrow-right"></i>
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
   {% else %}
-    <p class="text-muted">No notifications yet.</p>
+  <!-- Empty state -->
+  <div class="glass-card p-5 text-center">
+    <div style="font-size:4rem;opacity:0.25;margin-bottom:1rem;">🔔</div>
+    <h5 style="color:var(--text-muted);">All caught up!</h5>
+    <p style="color:var(--text-muted);font-size:0.9rem;">No notifications yet. They'll appear here when someone interacts with your resources.</p>
+    <a href="{% url 'resources:resource_list' %}" class="btn btn-primary btn-sm mt-2">
+      <i class="bi bi-folder2-open me-1"></i>Browse Resources
+    </a>
+  </div>
   {% endif %}
+
 </div>
+
+<style>
+.notif-unread {
+  background: rgba(99,102,241,0.04) !important;
+}
+.notif-unread:hover {
+  background: rgba(99,102,241,0.08) !important;
+}
+[data-theme="dark"] .notif-unread {
+  background: rgba(129,140,248,0.06) !important;
+}
+</style>
 {% endblock %}

@@ -1,5 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from .models import Profile
 
 
@@ -7,19 +9,20 @@ class RegisterForm(forms.Form):
     username = forms.CharField(
         max_length=150,
         label="Username",
-        widget=forms.TextInput(attrs={"class": "form-control"})
+        widget=forms.TextInput(attrs={"class": "form-control", "autocomplete": "username"})
     )
     email = forms.EmailField(
         label="Email",
-        widget=forms.EmailInput(attrs={"class": "form-control"})
+        widget=forms.EmailInput(attrs={"class": "form-control", "autocomplete": "email"})
     )
     password = forms.CharField(
         label="Password",
-        widget=forms.PasswordInput(attrs={"class": "form-control"})
+        min_length=8,
+        widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "new-password"})
     )
     confirm_password = forms.CharField(
         label="Confirm Password",
-        widget=forms.PasswordInput(attrs={"class": "form-control"})
+        widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "new-password"})
     )
 
     def clean_username(self):
@@ -41,6 +44,20 @@ class RegisterForm(forms.Form):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("Email already registered.")
         return email
+
+    def clean_password(self):
+        """Run Django's built-in password validators (same as password reset)."""
+        password = self.cleaned_data.get("password")
+        if password:
+            # Create a temporary user object for validation context
+            username = self.data.get("username", "")
+            email = self.data.get("email", "")
+            temp_user = User(username=username, email=email)
+            try:
+                validate_password(password, user=temp_user)
+            except ValidationError as e:
+                raise forms.ValidationError(list(e.messages))
+        return password
 
     def clean(self):
         cleaned = super().clean()

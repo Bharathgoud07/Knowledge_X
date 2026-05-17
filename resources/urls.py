@@ -1,6 +1,7 @@
-# resources/urls.py
 from django.urls import path
 from . import views
+
+app_name = 'resources'
 
 urlpatterns = [
     # List + CRUD-ish
@@ -9,8 +10,9 @@ urlpatterns = [
     path("<int:pk>/", views.resource_detail, name="resource_detail"),
     path("<int:pk>/download/", views.resource_download, name="resource_download"),
 
-    # Online viewer
+    # Online viewer & AI Chat
     path("<int:pk>/view/", views.resource_viewer, name="resource_viewer"),
+    path("<int:pk>/chat/", views.resource_chat_api, name="resource_chat_api"),
 
     # Favorites
     path("<int:pk>/favorite/", views.toggle_favorite, name="resource_toggle_favorite"),
@@ -25,9 +27,13 @@ urlpatterns = [
     path("<int:pk>/report/", views.report_resource, name="report_resource"),
     path("<int:pk>/verify/", views.verify_resource, name="verify_resource"),
 
+    # Delete resource
+    path("<int:pk>/delete/", views.delete_resource, name="resource_delete"),
+
     # Notifications
     path("notifications/", views.notifications_list, name="notifications_list"),
     path("notifications/<int:pk>/read/", views.notification_mark_read, name="notification_mark_read"),
+    path("notifications/mark-all-read/", views.mark_all_notifications_read, name="mark_all_notifications_read"),
 
     # Leaderboard
     path("leaderboard/", views.leaderboard, name="leaderboard"),

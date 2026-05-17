@@ -1,13 +1,13 @@
 {% extends 'base.html' %}
 
+{% block title %}Upload Resource — KnowledgeX{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-  <div class="card shadow p-4 mx-auto" style="max-width: 650px;">
-    <h3 class="mb-3">Upload Resource</h3>
-    <p class="text-muted mb-3">
-      Upload notes, handwritten notes, important questions, or diagrams.
-      Allowed file types:
-      <strong>PDF, JPG, JPEG, PNG, DOCX, ZIP, PPT, PPTX</strong>.
+<div class="animate-in">
+  <div class="glass-card p-4 mx-auto" style="max-width: 700px;">
+    <h3 class="mb-2"><i class="bi bi-cloud-arrow-up me-1"></i>Upload Resource</h3>
+    <p style="color:var(--text-muted);font-size:0.9rem;" class="mb-3">
+      Allowed: <strong>PDF, JPG, JPEG, PNG, DOCX, ZIP, PPT, PPTX</strong> — Max 10MB
     </p>
 
     <form method="POST" enctype="multipart/form-data">
@@ -15,83 +15,148 @@
 
       {{ form.non_field_errors }}
 
-      <div class="mb-3">
-        {{ form.title.label_tag }}
+      <div class="form-group">
+        <label class="form-label">Title</label>
         {{ form.title }}
-        {{ form.title.errors }}
+        {% if form.title.errors %}<div class="form-error">{{ form.title.errors }}</div>{% endif %}
       </div>
 
-      <div class="mb-3">
-        {{ form.description.label_tag }}
+      <div class="form-group">
+        <label class="form-label">Description</label>
         {{ form.description }}
-        {{ form.description.errors }}
+        {% if form.description.errors %}<div class="form-error">{{ form.description.errors }}</div>{% endif %}
       </div>
 
       <div class="row g-3">
-  <div class="col-md-6">
-    <label class="form-label">Branch</label>
-    <select id="branchSelect" class="form-select">
-      <option value="">All</option>
-      <option value="CSE">CSE</option>
-      <option value="ECE">ECE</option>
-      <option value="EEE">EEE</option>
-      <option value="MECH">MECH</option>
-      <!-- etc -->
-    </select>
-  </div>
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label">Branch (filter)</label>
+            <select id="branchSelect" class="form-select">
+              <option value="">All</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+              <option value="EEE">EEE</option>
+              <option value="MECH">MECH</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label">Subject</label>
+            {{ form.subject }}
+            {% if form.subject.errors %}<div class="form-error">{{ form.subject.errors }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
 
-  <div class="col-md-6">
-    <label class="form-label">Subject</label>
-    <select id="subjectSelect" name="subject" class="form-select">
-      {% for subj in form.fields.subject.queryset %}
-        <option value="{{ subj.id }}" data-branch="{{ subj.branch }}">
-          {{ subj.name }} ({{ subj.branch|default:'General' }})
-        </option>
-      {% endfor %}
-    </select>
+      <div class="form-group mt-3">
+        <label class="form-label">Or Add New Subject</label>
+        {{ form.new_subject_name }}
+        <div class="form-text" style="color:var(--text-muted);font-size:0.85rem;">{{ form.new_subject_name.help_text }}</div>
+        {% if form.new_subject_name.errors %}<div class="form-error">{{ form.new_subject_name.errors }}</div>{% endif %}
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label">Semester</label>
+            {{ form.semester }}
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group mb-0">
+            <label class="form-label">Resource Type</label>
+            {{ form.resource_type }}
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group mt-3">
+        <label class="form-label">
+          <i class="bi bi-paperclip me-1"></i>File
+          <span style="color:var(--text-muted);font-weight:400;"> — PDF, JPG, PNG, DOCX, PPT, PPTX, ZIP · Max 10MB</span>
+        </label>
+        {{ form.file }}
+        <div id="fileFeedback"></div>
+        {% if form.file.errors %}<div class="form-error">{{ form.file.errors }}</div>{% endif %}
+      </div>
+
+      <button type="submit" class="btn-primary-custom w-full mt-3">
+        <i class="bi bi-upload me-1"></i>Upload Resource
+      </button>
+    </form>
   </div>
 </div>
 
 <script>
+  // Branch filter for subject dropdown
   const branchSelect = document.getElementById('branchSelect');
-  const subjectSelect = document.getElementById('subjectSelect');
-
-  function filterSubjects() {
-    const b = branchSelect.value;
-    for (const opt of subjectSelect.options) {
-      const ob = opt.getAttribute('data-branch') || '';
-      if (!b || ob === b) {
-        opt.hidden = false;
-      } else {
-        opt.hidden = true;
+  const subjectSelect = document.getElementById('id_subject');
+  if (branchSelect && subjectSelect) {
+    branchSelect.addEventListener('change', function() {
+      const b = this.value;
+      for (const opt of subjectSelect.options) {
+        const text = opt.textContent || '';
+        if (!b || text.includes('(' + b + ')') || text.includes('(General)')) {
+          opt.hidden = false;
+        } else {
+          opt.hidden = true;
+        }
       }
-    }
+    });
   }
-  branchSelect.addEventListener('change', filterSubjects);
-  filterSubjects();
+
+  // File size & type validation
+  const fileInput = document.getElementById('id_file');
+  const fileFeedback = document.getElementById('fileFeedback');
+  const MAX_MB = 10;
+
+  if (fileInput) {
+    fileInput.addEventListener('change', function() {
+      if (!this.files || !this.files[0]) return;
+      const file = this.files[0];
+      const sizeMB = file.size / (1024 * 1024);
+      const name = file.name;
+      const ext = name.split('.').pop().toLowerCase();
+      const allowed = ['pdf','jpg','jpeg','png','docx','ppt','pptx','zip'];
+
+      let html = '';
+      let valid = true;
+
+      if (!allowed.includes(ext)) {
+        html = `<div style="color:var(--danger);font-size:0.8rem;margin-top:4px;">
+          ❌ File type <strong>.${ext}</strong> is not allowed. Allowed: PDF, JPG, PNG, DOCX, PPT, PPTX, ZIP.
+        </div>`;
+        valid = false;
+      } else if (sizeMB > MAX_MB) {
+        html = `<div style="color:var(--danger);font-size:0.8rem;margin-top:4px;">
+          ❌ File is too large: <strong>${sizeMB.toFixed(1)} MB</strong>. Maximum allowed: ${MAX_MB} MB.
+        </div>`;
+        valid = false;
+      } else {
+        const icons = {pdf:'📄',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',docx:'📝',ppt:'📊',pptx:'📊',zip:'🗜️'};
+        html = `<div style="color:var(--success);font-size:0.8rem;margin-top:4px;">
+          ✅ ${icons[ext]||'📎'} <strong>${name}</strong> — ${sizeMB.toFixed(2)} MB — Ready to upload
+        </div>`;
+      }
+      if (fileFeedback) fileFeedback.innerHTML = html;
+
+      // Disable submit if invalid
+      const submitBtn = document.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = !valid;
+    });
+  }
+
+  // Show uploading state on submit
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      const btn = this.querySelector('button[type="submit"]');
+      if (btn && !btn.disabled) {
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Uploading & Processing AI...';
+        btn.disabled = true;
+      }
+    });
+  }
 </script>
-
-
-      <div class="mb-3">
-        {{ form.semester.label_tag }}
-        {{ form.semester }}
-        {{ form.semester.errors }}
-      </div>
-
-      <div class="mb-3">
-        {{ form.resource_type.label_tag }}
-        {{ form.resource_type }}
-        {{ form.resource_type.errors }}
-      </div>
-
-      <div class="mb-3">
-        {{ form.file.label_tag }}
-        {{ form.file }}
-        {{ form.file.errors }}
-      </div>
-
-      <button type="submit" class="btn btn-primary mt-2">Upload</button>
-    </form>
-  </div>
-</div>
 {% endblock %}
