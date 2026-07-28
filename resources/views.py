@@ -4,13 +4,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.db.models import Q, F, Count, Sum, Avg
+from django.contrib.auth.forms import PasswordResetForm
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.db.models.functions import TruncDate, Coalesce
 import json
 import zipfile
 
+from accounts.models import Profile
 from .models import (
     Resource,
     SEMESTER_CHOICES,
@@ -24,7 +27,7 @@ from .models import (
     Visit,
 )
 
-from .forms import ResourceForm, CommentForm, RatingForm, ReportForm
+from .forms import ResourceForm, CommentForm, RatingForm, ReportForm, SubjectForm, AdminResourceForm
 from core import ai_service
 
 # extra optional preview libs
@@ -823,6 +826,445 @@ def admin_analytics_dashboard(request):
         "subject_download_counts_json": json.dumps(subject_download_counts),
     }
     return render(request, "resources/admin_analytics.html", context)
+
+
+# -------------------------------------------------------------------
+# Admin center helpers
+# -------------------------------------------------------------------
+
+def _get_role_label(user):
+    if user.is_superuser:
+        return "Admin"
+    if user.is_staff:
+        return "Moderator"
+    return "Student"
+
+
+def _require_superuser(request):
+    if not request.user.is_superuser:
+        messages.error(request, "Superuser access required.")
+        return False
+    return True
+
+
+@staff_member_required
+def admin_user_list(request):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    q = request.GET.get("q", "").strip()
+    role = request.GET.get("role", "")
+    status = request.GET.get("status", "")
+
+    users = (
+        User.objects.select_related("profile")
+        .annotate(
+            uploads_count=Count("resources", distinct=True),
+            reports_count=Count("reports", distinct=True),
+            comments_count=Count("comments", distinct=True),
+        )
+        .order_by("-date_joined")
+    )
+
+    if q:
+        users = users.filter(
+            Q(username__icontains=q)
+            | Q(email__icontains=q)
+            | Q(profile__college__icontains=q)
+            | Q(profile__branch__icontains=q)
+        )
+
+    if role == "student":
+        users = users.filter(is_staff=False, is_superuser=False)
+    elif role == "moderator":
+        users = users.filter(is_staff=True, is_superuser=False)
+    elif role == "admin":
+        users = users.filter(is_superuser=True)
+
+    if status == "active":
+        users = users.filter(is_active=True)
+    elif status == "inactive":
+        users = users.filter(is_active=False)
+
+    paginator = Paginator(users, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    for user in page_obj:
+        user.role_label = _get_role_label(user)
+
+    context = {
+        "page_obj": page_obj,
+        "q": q,
+        "role": role,
+        "status": status,
+        "Profile": Profile,
+    }
+    return render(request, "resources/admin_user_list.html", context)
+
+
+@staff_member_required
+def admin_user_detail(request, user_id):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    target_user = get_object_or_404(User, pk=user_id)
+    profile, _ = Profile.objects.get_or_create(user=target_user)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "toggle_active":
+            target_user.is_active = not target_user.is_active
+            target_user.save()
+            messages.success(request, "User status updated.")
+        elif action == "change_role":
+            role = request.POST.get("role")
+            if role == "admin":
+                target_user.is_staff = True
+                target_user.is_superuser = True
+            elif role == "moderator":
+                target_user.is_staff = True
+                target_user.is_superuser = False
+            else:
+                target_user.is_staff = False
+                target_user.is_superuser = False
+            target_user.save()
+            messages.success(request, "User role updated.")
+        elif action == "verify_email":
+            profile.email_verified = True
+            profile.email_verified_at = timezone.now()
+            profile.save()
+            messages.success(request, "User email verified manually.")
+        elif action == "send_reset":
+            if target_user.email:
+                form = PasswordResetForm({"email": target_user.email})
+                if form.is_valid():
+                    form.save(
+                        request=request,
+                        use_https=request.is_secure(),
+                        subject_template_name="accounts/password_reset_subject.txt",
+                        email_template_name="accounts/password_reset_email.html",
+                        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                        html_email_template_name=None,
+                    )
+                    messages.success(request, "Password reset email sent to user.")
+                else:
+                    messages.error(request, "Unable to send reset email for this account.")
+            else:
+                messages.error(request, "User has no email address configured.")
+        return redirect("resources:admin_user_detail", user_id=target_user.id)
+
+    user_stats = {
+        "uploads_count": target_user.resources.count(),
+        "favorites_count": target_user.favorites.count(),
+        "reports_count": target_user.reports.count(),
+        "comments_count": target_user.comments.count(),
+        "ratings_given": target_user.ratings.count(),
+    }
+
+    recent_uploads = target_user.resources.order_by("-created_at")[:5]
+
+    context = {
+        "target_user": target_user,
+        "profile": profile,
+        "user_stats": user_stats,
+        "recent_uploads": recent_uploads,
+        "role_label": _get_role_label(target_user),
+    }
+    return render(request, "resources/admin_user_detail.html", context)
+
+
+@staff_member_required
+def admin_resource_list(request):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    resources_qs = Resource.objects.select_related("owner", "subject").all().order_by("-created_at")
+    q = request.GET.get("q", "").strip()
+    subject_ids = request.GET.getlist("subject")
+    semesters = request.GET.getlist("semester")
+    status = request.GET.get("status", "")
+    sort = request.GET.get("sort", "newest")
+
+    if q:
+        tokens = q.split()
+        for token in tokens:
+            resources_qs = resources_qs.filter(
+                Q(title__icontains=token)
+                | Q(description__icontains=token)
+                | Q(subject__name__icontains=token)
+                | Q(subject__abbreviation__icontains=token)
+                | Q(owner__username__icontains=token)
+            )
+
+    if subject_ids:
+        try:
+            resources_qs = resources_qs.filter(subject_id__in=[int(s) for s in subject_ids if s])
+        except ValueError:
+            pass
+
+    if semesters:
+        try:
+            resources_qs = resources_qs.filter(semester__in=[int(s) for s in semesters if s])
+        except ValueError:
+            pass
+
+    if status == "pending":
+        resources_qs = resources_qs.filter(verification_status="PENDING")
+    elif status == "approved":
+        resources_qs = resources_qs.filter(verification_status="APPROVED")
+    elif status == "rejected":
+        resources_qs = resources_qs.filter(verification_status="REJECTED")
+
+    if sort == "downloads":
+        resources_qs = resources_qs.order_by("-download_count", "-created_at")
+    elif sort == "views":
+        resources_qs = resources_qs.order_by("-view_count", "-created_at")
+    elif sort == "title":
+        resources_qs = resources_qs.order_by("title")
+    else:
+        resources_qs = resources_qs.order_by("-created_at")
+
+    if request.method == "POST" and request.POST.get("bulk_action"):
+        action = request.POST.get("bulk_action")
+        selected_ids = request.POST.getlist("selected_resources")
+        selected_resources = Resource.objects.filter(pk__in=selected_ids)
+
+        if action == "approve":
+            selected_resources.update(verification_status="APPROVED", verified_by=request.user, verified_at=timezone.now())
+            messages.success(request, "Selected resources approved.")
+        elif action == "reject":
+            selected_resources.update(verification_status="REJECTED", verified_by=request.user, verified_at=timezone.now())
+            messages.success(request, "Selected resources rejected.")
+        elif action == "delete":
+            for resource in selected_resources:
+                resource.file.delete(save=False)
+                resource.delete()
+            messages.success(request, "Selected resources deleted.")
+        return redirect("resources:admin_resource_list")
+
+    paginator = Paginator(resources_qs, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+        "q": q,
+        "subject_filter": subject_ids,
+        "semester_filter": semesters,
+        "status": status,
+        "sort": sort,
+        "semester_choices": SEMESTER_CHOICES,
+        "subjects": Subject.objects.order_by("name"),
+        "VERIFICATION_STATUS_CHOICES": [
+            ("", "All"),
+            ("PENDING", "Pending"),
+            ("APPROVED", "Approved"),
+            ("REJECTED", "Rejected"),
+        ],
+    }
+    return render(request, "resources/admin_resource_list.html", context)
+
+
+@staff_member_required
+def admin_resource_edit(request, pk):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    resource = get_object_or_404(Resource, pk=pk)
+
+    if request.method == "POST":
+        form = AdminResourceForm(request.POST, request.FILES, instance=resource)
+        if form.is_valid():
+            updated = form.save(commit=False)
+            new_subject = form.cleaned_data.get("new_subject_name")
+            if new_subject:
+                subject_obj, _ = Subject.objects.get_or_create(name=new_subject.strip())
+                updated.subject = subject_obj
+            updated.save()
+            messages.success(request, "Resource updated successfully.")
+            return redirect("resources:admin_resource_list")
+    else:
+        form = AdminResourceForm(instance=resource)
+
+    return render(request, "resources/admin_resource_edit.html", {"form": form, "resource": resource})
+
+
+@staff_member_required
+def admin_report_list(request):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    reports = Report.objects.select_related("resource", "reporter").order_by("-created_at")
+    q = request.GET.get("q", "").strip()
+    status = request.GET.get("status", "")
+
+    if q:
+        reports = reports.filter(
+            Q(resource__title__icontains=q)
+            | Q(reason__icontains=q)
+            | Q(reporter__username__icontains=q)
+        )
+
+    if status:
+        reports = reports.filter(status=status)
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+        report_id = request.POST.get("report_id")
+        warn_message = request.POST.get("warn_message", "").strip()
+        report = get_object_or_404(Report, pk=report_id)
+
+        if action == "approve_report":
+            report.status = "RESOLVED"
+            report.handled_at = timezone.now()
+            report.save()
+            messages.success(request, "Report approved.")
+        elif action == "reject_report":
+            report.status = "REVIEWED"
+            report.handled_at = timezone.now()
+            report.save()
+            messages.success(request, "Report rejected.")
+        elif action == "delete_resource":
+            resource = report.resource
+            resource.file.delete(save=False)
+            resource.delete()
+            report.status = "RESOLVED"
+            report.handled_at = timezone.now()
+            report.save()
+            messages.success(request, "Resource deleted and report resolved.")
+        elif action == "warn_uploader":
+            if warn_message:
+                Notification.objects.create(
+                    user=report.resource.owner,
+                    notif_type="REPORT_STATUS",
+                    message=f"Warning: {warn_message}",
+                    resource=report.resource,
+                    report=report,
+                )
+                report.status = "REVIEWED"
+                report.handled_at = timezone.now()
+                report.save()
+                messages.success(request, "Uploader warned and report updated.")
+            else:
+                messages.error(request, "Please enter a warning message.")
+        return redirect("resources:admin_report_list")
+
+    paginator = Paginator(reports, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+        "q": q,
+        "status": status,
+        "REPORT_STATUS_CHOICES": [
+            ("", "All"),
+            ("OPEN", "Open"),
+            ("REVIEWED", "Reviewed"),
+            ("RESOLVED", "Resolved"),
+        ],
+    }
+    return render(request, "resources/admin_report_list.html", context)
+
+
+@staff_member_required
+def admin_subject_list(request):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    subjects = Subject.objects.order_by("name")
+    q = request.GET.get("q", "").strip()
+    if q:
+        subjects = subjects.filter(
+            Q(name__icontains=q)
+            | Q(branch__icontains=q)
+            | Q(abbreviation__icontains=q)
+        )
+
+    context = {
+        "subjects": subjects,
+        "q": q,
+    }
+    return render(request, "resources/admin_subject_list.html", context)
+
+
+@staff_member_required
+def admin_subject_add(request):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    if request.method == "POST":
+        form = SubjectForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Subject added successfully.")
+            return redirect("resources:admin_subject_list")
+    else:
+        form = SubjectForm()
+
+    return render(request, "resources/admin_subject_form.html", {"form": form, "title": "Add Subject"})
+
+
+@staff_member_required
+def admin_subject_edit(request, pk):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == "POST":
+        form = SubjectForm(request.POST, instance=subject)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Subject updated successfully.")
+            return redirect("resources:admin_subject_list")
+    else:
+        form = SubjectForm(instance=subject)
+
+    return render(request, "resources/admin_subject_form.html", {"form": form, "title": "Edit Subject"})
+
+
+@staff_member_required
+def admin_subject_delete(request, pk):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    subject = get_object_or_404(Subject, pk=pk)
+    if request.method == "POST":
+        subject.delete()
+        messages.success(request, "Subject deleted successfully.")
+        return redirect("resources:admin_subject_list")
+
+    return render(request, "resources/admin_subject_confirm_delete.html", {"subject": subject})
+
+
+@staff_member_required
+def admin_send_notification(request):
+    if not _require_superuser(request):
+        return redirect("core:dashboard")
+
+    if request.method == "POST":
+        title = request.POST.get("title", "").strip()
+        message_text = request.POST.get("message", "").strip()
+
+        if not title or not message_text:
+            messages.error(request, "Please enter both a title and a message.")
+        else:
+            users = User.objects.filter(is_active=True)
+            notifications = [
+                Notification(
+                    user=user,
+                    notif_type="REPORT_STATUS",
+                    message=f"{title}: {message_text}",
+                )
+                for user in users
+            ]
+            Notification.objects.bulk_create(notifications)
+            messages.success(request, f"Announcement sent to {users.count()} users.")
+            return redirect("resources:admin_send_notification")
+
+    return render(request, "resources/admin_send_notification.html")
 
 
 # -------------------------------------------------------------------

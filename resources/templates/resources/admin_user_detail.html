@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Manage {{ target_user.username }} — KnowledgeX{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="mb-1"><i class="bi bi-person-badge me-2"></i>{{ target_user.username }}</h3>
+      <p class="text-muted mb-0">Role: {{ role_label }} · Email: {{ target_user.email }}</p>
+    </div>
+    <div>
+      <a href="{% url 'resources:admin_user_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left-circle me-1"></i>Back to Users</a>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="glass-card p-4 mb-4">
+        <h5 class="mb-3">Account Actions</h5>
+        <form method="post" class="row g-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="toggle_active">
+          <div class="col-md-4">
+            <button type="submit" class="btn btn-outline-{{ target_user.is_active|yesno:'danger,success' }} w-100">
+              {% if target_user.is_active %}Deactivate{% else %}Activate{% endif %}
+            </button>
+          </div>
+        </form>
+
+        <form method="post" class="row g-3 mt-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="change_role">
+          <div class="col-md-4">
+            <label class="form-label">Role</label>
+            <select name="role" class="form-select">
+              <option value="student" {% if not target_user.is_staff and not target_user.is_superuser %}selected{% endif %}>Student</option>
+              <option value="moderator" {% if target_user.is_staff and not target_user.is_superuser %}selected{% endif %}>Moderator</option>
+              <option value="admin" {% if target_user.is_superuser %}selected{% endif %}>Admin</option>
+            </select>
+          </div>
+          <div class="col-md-4 align-self-end">
+            <button type="submit" class="btn btn-primary w-100">Change Role</button>
+          </div>
+        </form>
+
+        <form method="post" class="row g-3 mt-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="verify_email">
+          <div class="col-md-8">
+            <p class="mb-1">Email verified: <strong>{{ profile.email_verified|yesno:'Yes,No' }}</strong></p>
+          </div>
+          <div class="col-md-4 align-self-end">
+            <button type="submit" class="btn btn-outline-primary w-100">Verify Email</button>
+          </div>
+        </form>
+
+        <form method="post" class="row g-3 mt-3">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="send_reset">
+          <div class="col-md-8">
+            <p class="mb-1">Send password reset link to user.</p>
+          </div>
+          <div class="col-md-4 align-self-end">
+            <button type="submit" class="btn btn-outline-warning w-100">Send Reset Email</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="glass-card p-4">
+        <h5 class="mb-3">User Activity</h5>
+        <div class="row text-center g-3">
+          <div class="col-sm-4">
+            <div class="stat-card bg-light p-3 rounded">
+              <div class="fs-4 fw-bold">{{ user_stats.uploads_count }}</div>
+              <small class="text-muted">Uploads</small>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="stat-card bg-light p-3 rounded">
+              <div class="fs-4 fw-bold">{{ user_stats.reports_count }}</div>
+              <small class="text-muted">Reports</small>
+            </div>
+          </div>
+          <div class="col-sm-4">
+            <div class="stat-card bg-light p-3 rounded">
+              <div class="fs-4 fw-bold">{{ user_stats.comments_count }}</div>
+              <small class="text-muted">Comments</small>
+            </div>
+          </div>
+        </div>
+
+        <h6 class="mt-4">Recent Uploads</h6>
+        <ul class="list-group list-group-flush">
+          {% for resource in recent_uploads %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <a href="{% url 'resources:resource_detail' resource.pk %}">{{ resource.title|truncatechars:40 }}</a>
+              <span class="text-muted small">{{ resource.created_at|date:'M d' }}</span>
+            </li>
+          {% empty %}
+            <li class="list-group-item text-muted">No recent uploads.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="glass-card p-4">
+        <h5 class="mb-3">Profile</h5>
+        <div class="mb-2"><strong>Full name:</strong> {{ profile.full_name|default:'—' }}</div>
+        <div class="mb-2"><strong>College:</strong> {{ profile.college|default:'—' }}</div>
+        <div class="mb-2"><strong>Branch:</strong> {{ profile.branch|default:'—' }}</div>
+        <div class="mb-2"><strong>Joined:</strong> {{ target_user.date_joined|date:'M d, Y' }}</div>
+        <div class="mb-2"><strong>Last login:</strong> {{ target_user.last_login|date:'M d, Y H:i'|default:'Never' }}</div>
+        <div class="mb-2"><strong>Email verified:</strong> {{ profile.email_verified|yesno:'Yes,No' }}</div>
+        <div class="mb-2"><strong>Registration:</strong> {{ target_user.is_active|yesno:'Active,Inactive' }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

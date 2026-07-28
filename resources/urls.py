@@ -21,6 +21,16 @@ urlpatterns = [
     # Dashboards / analytics
     path("subject-dashboard/", views.subject_dashboard, name="subject_dashboard"),
     path("admin-analytics/", views.admin_analytics_dashboard, name="admin_analytics"),
+    path("admin/users/", views.admin_user_list, name="admin_user_list"),
+    path("admin/users/<int:user_id>/", views.admin_user_detail, name="admin_user_detail"),
+    path("admin/resources/", views.admin_resource_list, name="admin_resource_list"),
+    path("admin/resources/<int:pk>/edit/", views.admin_resource_edit, name="admin_resource_edit"),
+    path("admin/reports/", views.admin_report_list, name="admin_report_list"),
+    path("admin/subjects/", views.admin_subject_list, name="admin_subject_list"),
+    path("admin/subjects/add/", views.admin_subject_add, name="admin_subject_add"),
+    path("admin/subjects/<int:pk>/edit/", views.admin_subject_edit, name="admin_subject_edit"),
+    path("admin/subjects/<int:pk>/delete/", views.admin_subject_delete, name="admin_subject_delete"),
+    path("admin/notifications/send/", views.admin_send_notification, name="admin_send_notification"),
     path("my-activity/", views.my_activity, name="my_activity"),
 
     # Reports + verification

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Delete Subject — KnowledgeX{% endblock %}
+
+{% block content %}
+<div class="animate-in">
+  <div class="glass-card p-4 mx-auto" style="max-width: 660px;">
+    <div class="mb-4">
+      <h3 class="mb-1"><i class="bi bi-exclamation-triangle me-2"></i>Delete Subject</h3>
+      <p class="text-muted mb-0">This will remove the subject from the system. Existing resources will keep their current subject value.</p>
+    </div>
+    <div class="mb-4 p-3 rounded" style="background:var(--bg-card); border:1px solid var(--border);">
+      <strong>{{ subject.name }}</strong>
+      <div class="text-muted">Branch: {{ subject.branch|default:'N/A' }} · Abbreviation: {{ subject.abbreviation|default:'N/A' }}</div>
+    </div>
+    <form method="post" class="d-flex gap-2">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger">Delete subject</button>
+      <a href="{% url 'resources:admin_subject_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
