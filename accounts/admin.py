@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from .models import Profile, LoginOTP
+from .models import Profile
 
 # --------------------------
 # PROFILE INLINE FOR USER ADMIN
@@ -74,15 +74,3 @@ class ProfileAdmin(admin.ModelAdmin):
         }),
     )
 
-# --------------------------
-# LOGIN OTP ADMIN
-# --------------------------
-@admin.register(LoginOTP)
-class LoginOTPAdmin(admin.ModelAdmin):
-    list_display = ("user", "code", "is_used", "created_at")
-    list_filter = ("is_used", "created_at")
-    search_fields = ("user__username", "code")
-    readonly_fields = ("user", "code", "created_at", "is_used")
-
-    def has_add_permission(self, request):
-        return False  # OTPs shouldn't be added manually

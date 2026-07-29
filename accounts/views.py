@@ -18,14 +18,12 @@ from django.contrib.auth.tokens import default_token_generator
 from django.db.models import Count, Sum, F
 from django.db.models.functions import Coalesce
 
-from .models import Profile, LoginOTP
+from .models import Profile
 from .forms import (
     RegisterForm,
     UserUpdateForm,
     ProfileUpdateForm,
     EmailLoginForm,
-    OTPLoginRequestForm,
-    OTPVerifyForm,
 )
 
 from resources.models import Resource
@@ -59,7 +57,7 @@ def send_verification_email(request, user):
         message,
         getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@example.com"),
         [user.email],
-        fail_silently=True,  # will just log in console backend
+        fail_silently=False,
     )
 
 
@@ -119,17 +117,20 @@ def register_user(request):
             # Ensure profile exists
             Profile.objects.get_or_create(user=user)
 
-            # Send verification mail (in dev, you see it in console)
+            # Send verification mail
             try:
                 send_verification_email(request, user)
             except Exception:
-                # Don't break registration if mail backend fails
-                pass
-
-            messages.success(
-                request,
-                "Account created successfully! Please check your email for a verification link. You can still log in now.",
-            )
+                
+                messages.warning(
+                    request,
+                    "Account created successfully, but we could not send the verification email. Please contact support or try again later.",
+                )
+            else:
+                messages.success(
+                    request,
+                    "Account created successfully! Please check your email for a verification link. You can still log in now.",
+                )
             return redirect("accounts:login")
     else:
         form = RegisterForm()
@@ -401,92 +402,6 @@ def public_profile(request, user_id):
 
 
 # ----------------------------------------------------
-# OPTIONAL: EMAIL + OTP LOGIN (kept for future use)
-# ----------------------------------------------------
-def login_with_email_request(request):
-    """
-    Step 1: user enters email, we send them a 6-digit OTP.
-    """
-    if request.method == "POST":
-        form = OTPLoginRequestForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data["email"].strip().lower()
-            user = User.objects.filter(email__iexact=email).first()
-
-            if not user:
-                messages.error(request, "No account found with that email.")
-                return redirect("accounts:login_with_email_request")
-
-            profile, _ = Profile.objects.get_or_create(user=user)
-            if not profile.email_verified:
-                messages.error(request, "Email is not verified. Please verify via registration email.")
-                return redirect("accounts:login")
-
-            import random
-            code = f"{random.randint(100000, 999999)}"
-            LoginOTP.objects.create(user=user, code=code)
-
-            subject = "Your KnowledgeX login OTP"
-            message = (
-                f"Hi {user.username},\n\n"
-                f"Your OTP for login is: {code}\n\n"
-                f"It is valid for 10 minutes.\n"
-            )
-            send_mail(
-                subject,
-                message,
-                getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@example.com"),
-                [user.email],
-                fail_silently=True,
-            )
-
-            messages.success(request, "OTP sent to your email. Enter it below.")
-            return redirect(f"{reverse('accounts:login_with_email_verify')}?email={email}")
-    else:
-        form = OTPLoginRequestForm()
-
-    return render(request, "accounts/login_otp_request.html", {"form": form})
-
-
-def login_with_email_verify(request):
-    """
-    Step 2: user enters email + OTP, we log them in if correct.
-    """
-    initial_email = request.GET.get("email", "")
-    if request.method == "POST":
-        form = OTPVerifyForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data["email"].strip().lower()
-            code = form.cleaned_data["code"].strip()
-
-            user = User.objects.filter(email__iexact=email).first()
-            if not user:
-                messages.error(request, "Invalid email or OTP.")
-                return redirect("accounts:login_with_email_verify")
-
-            otp_obj = (
-                LoginOTP.objects.filter(user=user, code=code, is_used=False)
-                .order_by("-created_at")
-                .first()
-            )
-
-            if not otp_obj or not otp_obj.is_valid():
-                messages.error(request, "Invalid or expired OTP.")
-                return redirect("accounts:login_with_email_verify")
-
-            otp_obj.is_used = True
-            otp_obj.save()
-
-            login(request, user)
-            messages.success(request, "Logged in successfully with OTP!")
-            return redirect("core:home")
-    else:
-        form = OTPVerifyForm(initial={"email": initial_email})
-
-    return render(request, "accounts/login_otp_verify.html", {"form": form})
-
-
-# ----------------------------------------------------
 # RESEND VERIFICATION EMAIL
 # ----------------------------------------------------
 @login_required
@@ -495,6 +410,13 @@ def resend_verification(request):
     if profile.email_verified:
         messages.info(request, "Your email is already verified.")
     else:
-        send_verification_email(request, request.user)
-        messages.success(request, "Verification email sent again.")
+        try:
+            send_verification_email(request, request.user)
+        except Exception:
+            messages.error(
+                request,
+                "Unable to send verification email right now. Please try again later.",
+            )
+        else:
+            messages.success(request, "Verification email sent again.")
     return redirect("accounts:my_profile")

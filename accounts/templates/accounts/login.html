@@ -64,13 +64,10 @@
 
     <!-- Footer links -->
     <div class="auth-footer">
-      <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+      <div class="d-flex justify-content-start" style="font-size:0.85rem;">
         <span style="color:var(--text-muted);">
           New here? <a href="{% url 'accounts:register' %}" style="font-weight:600;">Create account</a>
         </span>
-        <a href="{% url 'accounts:login_with_email_request' %}" style="color:var(--text-muted);">
-          <i class="bi bi-envelope me-1"></i>OTP Login
-        </a>
       </div>
     </div>
   </div>

@@ -1,3 +1,5 @@
+import socket
+
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -40,6 +42,11 @@ class RegisterForm(forms.Form):
 
         if domain in blocked:
             raise forms.ValidationError("Please use a real email provider.")
+
+        try:
+            socket.getaddrinfo(domain, None)
+        except socket.gaierror:
+            raise forms.ValidationError("Email domain does not appear to exist. Please enter a valid address.")
 
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("Email already registered.")
@@ -114,12 +121,3 @@ class ProfileUpdateForm(forms.ModelForm):
             "website_url": forms.URLInput(attrs={"class": "form-control"}),
             "bio": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
         }
-
-
-class OTPLoginRequestForm(forms.Form):
-    email = forms.EmailField(widget=forms.EmailInput(attrs={"class": "form-control"}))
-
-
-class OTPVerifyForm(forms.Form):
-    email = forms.EmailField(widget=forms.EmailInput(attrs={"class": "form-control"}))
-    code = forms.CharField(max_length=6, widget=forms.TextInput(attrs={"class": "form-control"}))

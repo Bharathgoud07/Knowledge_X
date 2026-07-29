@@ -59,18 +59,6 @@ urlpatterns = [
         name="password_reset_complete",
     ),
 
-    # Optional OTP login
-    path(
-        "login/otp/",
-        views.login_with_email_request,
-        name="login_with_email_request",
-    ),
-    path(
-        "login/otp/verify/",
-        views.login_with_email_verify,
-        name="login_with_email_verify",
-    ),
-
     # Resend verification link
     path(
         "resend-verification/",
