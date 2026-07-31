@@ -95,7 +95,10 @@ DATABASES = {
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
     )
 }
+from django.db import connection
 
+print("ENGINE:", connection.settings_dict["ENGINE"])
+print("DB NAME:", connection.settings_dict["NAME"])
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
