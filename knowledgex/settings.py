@@ -88,17 +88,12 @@ WSGI_APPLICATION = 'knowledgex.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-print("DATABASE_URL exists:", bool(os.environ.get("DATABASE_URL")))
-print("EMAIL_HOST exists:", bool(os.environ.get("EMAIL_HOST")))
+
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
     )
 }
-from django.db import connection
-
-print("ENGINE:", connection.settings_dict["ENGINE"])
-print("DB NAME:", connection.settings_dict["NAME"])
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
