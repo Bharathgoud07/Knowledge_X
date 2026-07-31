@@ -281,6 +281,8 @@ def my_profile(request):
 # ----------------------------------------------------
 # EDIT OWN PROFILE
 # ----------------------------------------------------
+
+
 @login_required
 def edit_profile(request):
     user = request.user
@@ -299,15 +301,12 @@ def edit_profile(request):
         u_form = UserUpdateForm(instance=user)
         p_form = ProfileUpdateForm(instance=profile)
 
-    return render(
-        request,
-        "accounts/edit_profile.html",
-        {
-            "u_form": u_form,
-            "p_form": p_form,
-            "profile": profile,
-        },
-    )
+    context = {
+        "u_form": u_form,
+        "p_form": p_form,
+        "profile": profile,
+    }
+    return render(request, "accounts/edit_profile.html", context)
 
 
 # ----------------------------------------------------

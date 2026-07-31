@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+from knowledgex.storage import CloudinaryMediaStorage
+
 
 class Profile(models.Model):
     user = models.OneToOneField(
@@ -29,6 +31,7 @@ class Profile(models.Model):
         upload_to="profiles/",
         blank=True,
         null=True,
+        storage=CloudinaryMediaStorage(),
     )
 
     # Login streaks

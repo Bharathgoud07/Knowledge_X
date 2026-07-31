@@ -3,6 +3,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 
+from knowledgex.storage import CloudinaryMediaStorage
+
 # --------- Choices ---------
 SEMESTER_CHOICES = [
     (1, "1st Semester"),
@@ -91,6 +93,7 @@ class Resource(models.Model):
 
     file = models.FileField(
         upload_to="uploads/resources/",
+        storage=CloudinaryMediaStorage(),
         validators=[
             FileExtensionValidator(
                 allowed_extensions=[

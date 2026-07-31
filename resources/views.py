@@ -162,19 +162,18 @@ def upload_resource(request):
                     resource.subject = new_sub
 
             resource.save()
-            
+
             # Extract text for AI if possible
             extracted_text = ""
             ext = (resource.file_ext or "").lower()
             text_pages_dict = {}
-            
+
             if ext == "pdf":
                 try:
                     import pypdf
-                    with open(resource.file.path, 'rb') as f:
+                    with resource.file.open("rb") as f:
                         reader = pypdf.PdfReader(f)
                         text_pages = []
-                        # Extract from first 30 pages max to save time/memory but provide decent context
                         for i, page in enumerate(reader.pages[:30]):
                             page_text = page.extract_text() or ""
                             text_pages.append(page_text)
@@ -184,57 +183,57 @@ def upload_resource(request):
                     pass
             elif ext == "docx" and docx:
                 try:
-                    document = docx.Document(resource.file.path)
-                    extracted_text = "\n".join([p.text for p in document.paragraphs if p.text.strip()][:50])
-                    if extracted_text:
-                        text_pages_dict = {"1": extracted_text}
+                    with resource.file.open("rb") as f:
+                        document = docx.Document(f)
+                        extracted_text = "\n".join([p.text for p in document.paragraphs if p.text.strip()][:50])
+                        if extracted_text:
+                            text_pages_dict = {"1": extracted_text}
                 except Exception:
                     pass
             elif ext in ["ppt", "pptx"] and pptx:
                 try:
-                    prs = pptx.Presentation(resource.file.path)
-                    all_text_parts = []
-                    for i, slide in enumerate(prs.slides, start=1):
-                        slide_lines = []
-                        # Title first
-                        if slide.shapes.title and slide.shapes.title.text.strip():
-                            slide_lines.append(slide.shapes.title.text.strip())
-                        # All other text shapes (body, bullet points, text boxes)
-                        for shape in slide.shapes:
-                            if shape == slide.shapes.title:
-                                continue
-                            if shape.has_text_frame:
-                                for para in shape.text_frame.paragraphs:
-                                    line = para.text.strip()
-                                    if line:
-                                        slide_lines.append(line)
-                        slide_text = "\n".join(slide_lines)
-                        if slide_text.strip():
-                            all_text_parts.append(slide_text)
-                            # Each slide = one "page" for AI chat
-                            text_pages_dict[str(i)] = slide_text
-                    extracted_text = "\n\n".join(all_text_parts)
+                    with resource.file.open("rb") as f:
+                        prs = pptx.Presentation(f)
+                        all_text_parts = []
+                        for i, slide in enumerate(prs.slides, start=1):
+                            slide_lines = []
+                            if slide.shapes.title and slide.shapes.title.text.strip():
+                                slide_lines.append(slide.shapes.title.text.strip())
+                            for shape in slide.shapes:
+                                if shape == slide.shapes.title:
+                                    continue
+                                if shape.has_text_frame:
+                                    for para in shape.text_frame.paragraphs:
+                                        line = para.text.strip()
+                                        if line:
+                                            slide_lines.append(line)
+                            slide_text = "\n".join(slide_lines)
+                            if slide_text.strip():
+                                all_text_parts.append(slide_text)
+                                text_pages_dict[str(i)] = slide_text
+                        extracted_text = "\n\n".join(all_text_parts)
                 except Exception:
                     pass
             elif ext == "txt":
                 try:
-                    with open(resource.file.path, 'r', encoding='utf-8') as f:
+                    with resource.file.open("r", encoding="utf-8") as f:
                         extracted_text = f.read(2000)
                     if extracted_text:
                         text_pages_dict = {"1": extracted_text}
                 except Exception:
                     pass
-                    
+
             if not extracted_text.strip():
                 extracted_text = resource.title + "\n" + resource.description
                 text_pages_dict = {"1": extracted_text}
-            
-            # Save the page mapping for AI Chat
-            resource.extracted_text_pages = text_pages_dict
 
-            # Generate AI fields
-            resource.auto_summary = ai_service.generate_summary(extracted_text)
-            resource.auto_questions = ai_service.generate_important_questions(extracted_text)
+            resource.extracted_text_pages = text_pages_dict
+            try:
+                resource.auto_summary = ai_service.generate_summary(extracted_text)
+                resource.auto_questions = ai_service.generate_important_questions(extracted_text)
+            except Exception:
+                resource.auto_summary = ""
+                resource.auto_questions = ""
             resource.save()
 
             messages.success(request, "Resource uploaded successfully! AI has processed it.")
@@ -404,34 +403,34 @@ def resource_chat_api(request, pk):
 
             if ext in ["ppt", "pptx"] and pptx:
                 try:
-                    prs = pptx.Presentation(resource.file.path)
-                    fresh_pages = {}
-                    for i, slide in enumerate(prs.slides, start=1):
-                        slide_lines = []
-                        if slide.shapes.title and slide.shapes.title.text.strip():
-                            slide_lines.append(slide.shapes.title.text.strip())
-                        for shape in slide.shapes:
-                            if shape == slide.shapes.title:
-                                continue
-                            if shape.has_text_frame:
-                                for para in shape.text_frame.paragraphs:
-                                    line = para.text.strip()
-                                    if line:
-                                        slide_lines.append(line)
-                        slide_text = "\n".join(slide_lines)
-                        if slide_text.strip():
-                            fresh_pages[str(i)] = slide_text
-                    if fresh_pages:
-                        pages_dict = fresh_pages
-                        # Save back so next chat is instant
-                        Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
+                    with resource.file.open("rb") as f:
+                        prs = pptx.Presentation(f)
+                        fresh_pages = {}
+                        for i, slide in enumerate(prs.slides, start=1):
+                            slide_lines = []
+                            if slide.shapes.title and slide.shapes.title.text.strip():
+                                slide_lines.append(slide.shapes.title.text.strip())
+                            for shape in slide.shapes:
+                                if shape == slide.shapes.title:
+                                    continue
+                                if shape.has_text_frame:
+                                    for para in shape.text_frame.paragraphs:
+                                        line = para.text.strip()
+                                        if line:
+                                            slide_lines.append(line)
+                            slide_text = "\n".join(slide_lines)
+                            if slide_text.strip():
+                                fresh_pages[str(i)] = slide_text
+                        if fresh_pages:
+                            pages_dict = fresh_pages
+                            Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
                 except Exception:
                     pass
 
             elif ext == "pdf":
                 try:
                     import pypdf
-                    with open(resource.file.path, 'rb') as f:
+                    with resource.file.open("rb") as f:
                         reader = pypdf.PdfReader(f)
                         fresh_pages = {}
                         for i, page in enumerate(reader.pages[:30], start=1):
@@ -446,14 +445,15 @@ def resource_chat_api(request, pk):
 
             elif ext == "docx" and docx:
                 try:
-                    document = docx.Document(resource.file.path)
-                    full_text = "\n".join(
-                        [p.text.strip() for p in document.paragraphs if p.text.strip()]
-                    )
-                    if full_text:
-                        fresh_pages = {"1": full_text}
-                        pages_dict = fresh_pages
-                        Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
+                    with resource.file.open("rb") as f:
+                        document = docx.Document(f)
+                        full_text = "\n".join(
+                            [p.text.strip() for p in document.paragraphs if p.text.strip()]
+                        )
+                        if full_text:
+                            fresh_pages = {"1": full_text}
+                            pages_dict = fresh_pages
+                            Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
                 except Exception:
                     pass
 
@@ -476,7 +476,8 @@ def resource_chat_api(request, pk):
 def resource_download(request, pk):
     resource = get_object_or_404(Resource, pk=pk)
     Resource.objects.filter(pk=pk).update(download_count=F("download_count") + 1)
-    return redirect(resource.file.url)
+    file_url = resource.file.url if resource.file else ""
+    return redirect(file_url or "/")
 
 
 # -------------------------------------------------------------------
@@ -484,102 +485,73 @@ def resource_download(request, pk):
 # -------------------------------------------------------------------
 @login_required
 def resource_viewer(request, pk):
-    """
-    Online viewer for various file types.
-    """
+
     resource = get_object_or_404(Resource, pk=pk)
 
-    # Count as a view
     Resource.objects.filter(pk=pk).update(view_count=F("view_count") + 1)
     resource.refresh_from_db()
 
     ext = (resource.file_ext or "").lower()
+
     preview_type = "fallback"
     preview_data = None
+    error = None
 
     try:
-        # ---------- 1) IMAGE ----------
-        if resource.is_image:
+
+        # ---------------- IMAGE ----------------
+        if ext in ["jpg", "jpeg", "png"]:
+
             preview_type = "image"
             preview_data = resource.file.url
 
-        # ---------- 2) PDF ----------
+        # ---------------- PDF ----------------
         elif ext == "pdf":
+
             preview_type = "pdf"
-            preview_data = resource.file.url
 
-        # ---------- 3) DOCX ----------
+            # Google PDF Viewer
+            preview_data = (
+                "https://docs.google.com/gview?embedded=1&url="
+                + resource.file.url
+            )
+
+        # ---------------- DOCX ----------------
         elif ext == "docx":
+
             preview_type = "docx"
-            if docx is None:
-                preview_data = None
-            else:
-                try:
-                    document = docx.Document(resource.file.path)
-                    lines = [p.text.strip() for p in document.paragraphs if p.text.strip()]
-                    preview_data = lines[:40]  # first 40 lines
-                except Exception:
-                    preview_data = None
 
-        # ---------- 4) PPT / PPTX ----------
+            preview_data = (
+                "https://view.officeapps.live.com/op/embed.aspx?src="
+                + resource.file.url
+            )
+
+        # ---------------- PPT ----------------
         elif ext in ["ppt", "pptx"]:
+
             preview_type = "ppt"
-            if pptx is None:
-                preview_data = None
-            else:
-                try:
-                    prs = pptx.Presentation(resource.file.path)
-                    slides_data = []
-                    for i, slide in enumerate(prs.slides, start=1):
-                        # Get slide title
-                        title_text = ""
-                        if slide.shapes.title and slide.shapes.title.text.strip():
-                            title_text = slide.shapes.title.text.strip()
-                        else:
-                            title_text = f"Slide {i}"
 
-                        # Get all body text (bullet points, text boxes, etc.)
-                        body_lines = []
-                        for shape in slide.shapes:
-                            # Skip the title shape to avoid duplication
-                            if shape == slide.shapes.title:
-                                continue
-                            if shape.has_text_frame:
-                                for para in shape.text_frame.paragraphs:
-                                    line = para.text.strip()
-                                    if line:
-                                        body_lines.append(line)
+            preview_data = (
+                "https://view.officeapps.live.com/op/embed.aspx?src="
+                + resource.file.url
+            )
 
-                        slides_data.append({
-                            "number": i,
-                            "title": title_text,
-                            "body": body_lines,
-                        })
-                    preview_data = slides_data
-                except Exception as e:
-                    preview_data = None
-
-        # ---------- 5) ZIP ----------
+        # ---------------- ZIP ----------------
         elif ext == "zip":
-            preview_type = "zip"
-            try:
-                names = []
-                with zipfile.ZipFile(resource.file.path, "r") as zf:
-                    for info in zf.infolist():
-                        if not info.is_dir():
-                            names.append(info.filename)
-                preview_data = names
-            except Exception:
-                preview_data = None
 
-        # ---------- 6) OTHER FILES ----------
-        else:
-            preview_type = "fallback"
+            preview_type = "zip"
+
             preview_data = None
 
-    except Exception:
-        preview_type = "fallback"
-        preview_data = None
+        else:
+
+            preview_type = "fallback"
+
+    except Exception as e:
+
+        print(e)
+
+        error = str(e)
 
     return render(
         request,
@@ -588,10 +560,9 @@ def resource_viewer(request, pk):
             "resource": resource,
             "preview_type": preview_type,
             "preview_data": preview_data,
+            "error": error,
         },
     )
-
-
 # -------------------------------------------------------------------
 # Favorites
 # -------------------------------------------------------------------
