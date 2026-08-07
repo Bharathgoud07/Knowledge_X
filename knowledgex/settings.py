@@ -173,7 +173,7 @@ CLOUDINARY_STORAGE = {
 
 STORAGES = {
     "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+         "BACKEND": "knowledgex.storage.CloudinaryMediaStorage",
     },
     "staticfiles": {
          "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
@@ -189,3 +189,5 @@ cloudinary.config(
     api_secret=os.environ.get("CLOUDINARY_API_SECRET"),
     secure=True,
 )
+
+
