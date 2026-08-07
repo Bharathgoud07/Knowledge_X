@@ -12,6 +12,8 @@ from django.conf import settings
 from django.db.models.functions import TruncDate, Coalesce
 import json
 import zipfile
+import requests
+from io import BytesIO
 
 from accounts.models import Profile
 from .models import (
@@ -171,20 +173,26 @@ def upload_resource(request):
             if ext == "pdf":
                 try:
                     import pypdf
-                    with open(resource.file.path, 'rb') as f:
-                        reader = pypdf.PdfReader(f)
-                        text_pages = []
-                        # Extract from first 30 pages max to save time/memory but provide decent context
-                        for i, page in enumerate(reader.pages[:30]):
-                            page_text = page.extract_text() or ""
-                            text_pages.append(page_text)
-                            text_pages_dict[str(i + 1)] = page_text
-                        extracted_text = "\n".join(text_pages)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    reader = pypdf.PdfReader(BytesIO(response.content))
+                    
+                    text_pages = []
+                    # Extract from first 30 pages max to save time/memory but provide decent context
+                    for i, page in enumerate(reader.pages[:30]):
+                        page_text = page.extract_text() or ""
+                        text_pages.append(page_text)
+                        text_pages_dict[str(i + 1)] = page_text
+                    extracted_text = "\n".join(text_pages)
                 except Exception:
                     pass
             elif ext == "docx" and docx:
                 try:
-                    document = docx.Document(resource.file.path)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    document = docx.Document(BytesIO(response.content))
                     extracted_text = "\n".join([p.text for p in document.paragraphs if p.text.strip()][:50])
                     if extracted_text:
                         text_pages_dict = {"1": extracted_text}
@@ -192,7 +200,10 @@ def upload_resource(request):
                     pass
             elif ext in ["ppt", "pptx"] and pptx:
                 try:
-                    prs = pptx.Presentation(resource.file.path)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    prs = pptx.Presentation(BytesIO(response.content))
                     all_text_parts = []
                     for i, slide in enumerate(prs.slides, start=1):
                         slide_lines = []
@@ -218,8 +229,10 @@ def upload_resource(request):
                     pass
             elif ext == "txt":
                 try:
-                    with open(resource.file.path, 'r', encoding='utf-8') as f:
-                        extracted_text = f.read(2000)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    extracted_text = response.text[:2000]
                     if extracted_text:
                         text_pages_dict = {"1": extracted_text}
                 except Exception:
@@ -404,7 +417,10 @@ def resource_chat_api(request, pk):
 
             if ext in ["ppt", "pptx"] and pptx:
                 try:
-                    prs = pptx.Presentation(resource.file.path)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    prs = pptx.Presentation(BytesIO(response.content))
                     fresh_pages = {}
                     for i, slide in enumerate(prs.slides, start=1):
                         slide_lines = []
@@ -431,22 +447,27 @@ def resource_chat_api(request, pk):
             elif ext == "pdf":
                 try:
                     import pypdf
-                    with open(resource.file.path, 'rb') as f:
-                        reader = pypdf.PdfReader(f)
-                        fresh_pages = {}
-                        for i, page in enumerate(reader.pages[:30], start=1):
-                            page_text = page.extract_text() or ""
-                            if page_text.strip():
-                                fresh_pages[str(i)] = page_text
-                        if fresh_pages:
-                            pages_dict = fresh_pages
-                            Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    reader = pypdf.PdfReader(BytesIO(response.content))
+                    fresh_pages = {}
+                    for i, page in enumerate(reader.pages[:30], start=1):
+                        page_text = page.extract_text() or ""
+                        if page_text.strip():
+                            fresh_pages[str(i)] = page_text
+                    if fresh_pages:
+                        pages_dict = fresh_pages
+                        Resource.objects.filter(pk=pk).update(extracted_text_pages=fresh_pages)
                 except Exception:
                     pass
 
             elif ext == "docx" and docx:
                 try:
-                    document = docx.Document(resource.file.path)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    document = docx.Document(BytesIO(response.content))
                     full_text = "\n".join(
                         [p.text.strip() for p in document.paragraphs if p.text.strip()]
                     )
@@ -515,7 +536,10 @@ def resource_viewer(request, pk):
                 preview_data = None
             else:
                 try:
-                    document = docx.Document(resource.file.path)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    document = docx.Document(BytesIO(response.content))
                     lines = [p.text.strip() for p in document.paragraphs if p.text.strip()]
                     preview_data = lines[:40]  # first 40 lines
                 except Exception:
@@ -528,7 +552,10 @@ def resource_viewer(request, pk):
                 preview_data = None
             else:
                 try:
-                    prs = pptx.Presentation(resource.file.path)
+                    response = requests.get(resource.file.url)
+                    response.raise_for_status()
+
+                    prs = pptx.Presentation(BytesIO(response.content))
                     slides_data = []
                     for i, slide in enumerate(prs.slides, start=1):
                         # Get slide title
@@ -564,7 +591,12 @@ def resource_viewer(request, pk):
             preview_type = "zip"
             try:
                 names = []
-                with zipfile.ZipFile(resource.file.path, "r") as zf:
+                response = requests.get(resource.file.url)
+                response.raise_for_status()
+
+                zip_data = BytesIO(response.content)
+
+                with zipfile.ZipFile(zip_data, "r") as zf:
                     for info in zf.infolist():
                         if not info.is_dir():
                             names.append(info.filename)

@@ -2,7 +2,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
-
+import os
 # --------- Choices ---------
 SEMESTER_CHOICES = [
     (1, "1st Semester"),
@@ -154,14 +154,45 @@ class Resource(models.Model):
         return self.title
 
     # ---- Helpers for file icons ----
+        # ---- Helpers for file icons ----
     @property
     def file_ext(self):
-        name = self.file.name.lower()
-        return name.split(".")[-1] if "." in name else ""
+        filename = os.path.basename(self.file.name).lower()
+
+        image_exts = [
+            "jpg", "jpeg", "png",
+            "gif", "bmp", "webp",
+            "svg", "tif", "tiff",
+        ]
+
+        raw_exts = [
+            "pdf",
+            "doc", "docx",
+            "ppt", "pptx",
+            "xls", "xlsx",
+            "txt",
+            "zip", "rar",
+        ]
+
+        for ext in image_exts + raw_exts:
+            if f".{ext}" in filename:
+                return ext
+
+        return ""
 
     @property
     def is_image(self):
-        return self.file_ext in ["jpg", "jpeg", "png"]
+        return self.file_ext in {
+            "jpg",
+            "jpeg",
+            "png",
+            "gif",
+            "bmp",
+            "webp",
+            "svg",
+            "tif",
+            "tiff",
+        }
 
     # ---- Ratings helpers ----
     @property
@@ -183,8 +214,6 @@ class Resource(models.Model):
     @property
     def is_verified(self):
         return self.verification_status == "APPROVED"
-
-
 # -------------------------
 # REPORT MODEL
 # -------------------------

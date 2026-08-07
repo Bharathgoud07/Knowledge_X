@@ -28,6 +28,12 @@
     <!-- Document Viewer -->
     <div class="col-md-8 col-12 d-flex flex-column p-0 pe-md-2" style="height: 100%;">
       <div class="glass-card flex-grow-1 overflow-hidden d-flex flex-column" style="background:var(--bg-card);border:1px solid var(--border);">
+        <div class="alert alert-warning">
+    preview_type = {{ preview_type }} <br>
+    file_ext = {{ resource.file_ext }} <br>
+    is_image = {{ resource.is_image }} <br>
+    file_url = {{ resource.file.url }}
+</div>
         {% if error %}
           <div class="p-5 text-center text-danger flex-grow-1 d-flex flex-column justify-content-center">
             <i class="bi bi-exclamation-triangle fs-1 mb-3"></i>
